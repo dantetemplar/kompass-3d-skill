@@ -13,6 +13,7 @@ from skill_paths import SKILL_DIR
 
 ROOT = SKILL_DIR
 EXAMPLES = ROOT / "examples"
+RUNNER = Path(__file__).resolve().parents[1] / "tools" / "run_examples.py"
 NAMES = ["01_plate", "02_ring", "03_holes", "04_revolve", "05_offset_plane",
          "06_loft", "07_body_pattern", "08_boolean", "09_reposition", "10_assembly",
          "11_fillet_edit", "12_chamfer", "13_native_hole", "14_shell", "15_linear_pattern"]
@@ -46,7 +47,7 @@ class GalleryTests(unittest.TestCase):
                     self.assertIn("build", functions)
 
     def test_runner_has_syntax_and_only_known_local_import_targets(self):
-        source = (ROOT / "scripts/run_examples.py").read_text()
+        source = RUNNER.read_text()
         ast.parse(source)
         for name in NAMES:
             self.assertIn(f'"{name}"', source)
@@ -54,6 +55,20 @@ class GalleryTests(unittest.TestCase):
         self.assertIn("Image.open", source)
         self.assertIn("document_ids(app) == initial", source)
         self.assertNotIn("OpenKompas", source)
+
+    def test_runner_resolves_packaged_examples_from_its_own_location(self):
+        tree = ast.parse(RUNNER.read_text())
+        assignment = next(node for node in tree.body if isinstance(node, ast.Assign)
+                          and any(isinstance(target, ast.Name) and target.id == "EXAMPLES"
+                                  for target in node.targets))
+        namespace = {"Path": Path, "__file__": str(RUNNER)}
+        exec(compile(ast.Module(body=[assignment], type_ignores=[]),
+                     str(RUNNER), "exec"), namespace)
+        self.assertEqual(namespace["EXAMPLES"], EXAMPLES)
+
+    def test_skill_contains_only_the_shared_macro_runner(self):
+        self.assertEqual(list(ROOT.rglob("*.sh")), [ROOT / "scripts/run.sh"])
+        self.assertFalse((ROOT / "scripts/run_examples.py").exists())
 
     def test_gallery_local_links_exist(self):
         text = (ROOT / "references/recipes.md").read_text()
@@ -71,7 +86,7 @@ class GalleryTests(unittest.TestCase):
 class RasterSafetyTests(unittest.TestCase):
     def setUp(self):
         # Compile only the pure Python capture helper; no native imports or CAD.
-        tree = ast.parse((ROOT / "scripts/run_examples.py").read_text())
+        tree = ast.parse(RUNNER.read_text())
         function = next(node for node in tree.body
                         if isinstance(node, ast.FunctionDef) and node.name == "capture")
         self.namespace = {"Path": Path, "math": math, "ksapi": Mock(),
@@ -114,7 +129,7 @@ class RasterSafetyTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), b"another writer")
 
     def test_volume_rejects_wrong_units_before_calculation(self):
-        tree = ast.parse((ROOT / "scripts/run_examples.py").read_text())
+        tree = ast.parse(RUNNER.read_text())
         function = next(node for node in tree.body
                         if isinstance(node, ast.FunctionDef) and node.name == "verified_volume")
         exec(compile(ast.Module(body=[function], type_ignores=[]),

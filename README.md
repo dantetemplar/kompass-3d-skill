@@ -64,9 +64,9 @@ cd ~/.cursor/skills/kompass-3d-skill
 
 ```bash
 cd ~/.cursor/skills/kompass-3d-skill
-./examples/macros/run.sh hello_box.py
-./examples/macros/run.sh draw_rectangle.py
-./examples/macros/run.sh touch_active.py ~/kompas-models/model.m3d
+./scripts/run.sh examples/macros/hello_box.py
+./scripts/run.sh examples/macros/draw_rectangle.py
+./scripts/run.sh examples/macros/touch_active.py ~/kompas-models/model.m3d
 ```
 
 `touch_active.py` меняет документ без автоматического сохранения. Используйте копию модели. Галерея и статусы проверки операций описаны в [references/examples.md](skills/kompass-3d-skill/references/examples.md).
@@ -88,6 +88,19 @@ uv run --script scripts/prepare/check_stubs.py
 uv run --script scripts/prepare/audit_artifacts.py
 ```
 
+## Проверка галереи в КОМПАС
+
+Инструмент разработки [tools/run_examples.py](tools/run_examples.py) не входит в устанавливаемый скилл. При уже работающей API-сессии выполните из корня репозитория:
+
+```bash
+bash skills/kompass-3d-skill/scripts/run.sh tools/run_examples.py --output-dir /tmp/kompas-examples-check
+
+# Только выбранные примеры; каталог результатов должен быть новым.
+bash skills/kompass-3d-skill/scripts/run.sh tools/run_examples.py --only 02_ring 03_holes --output-dir /tmp/kompas-holes-check
+```
+
+Стенд строит примеры, проверяет геометрию, сохраняет и повторно открывает временные модели, получает JPEG через КОМПАС. В новом каталоге остаются изображения и `verification.json`; временные модели удаляются, чужие документы не меняются. Зависимость `pillow` устанавливается через `uv` из PEP 723 скрипта; первая установка может требовать сеть.
+
 ## Состав
 
 - `skills/kompass-3d-skill/` — автономный переносимый скилл: `SKILL.md`, `references/`, `examples/`, `scripts/`.
@@ -95,6 +108,7 @@ uv run --script scripts/prepare/audit_artifacts.py
 - `skills/kompass-3d-skill/examples/macros/` — вводные макросы.
 - `skills/kompass-3d-skill/.cache/` — локальные справка и стабы, не включены в Git.
 - `tests/` — тесты разработки репозитория, не входят в устанавливаемый скилл.
+- `tools/` — инструменты разработки: регрессия галереи и генерация JPEG.
 - `INSIGHTS.md` — существующие заметки исследования итеративной работы с КОМПАС.
 - `PracticeProblems_ALL250_CSWA/` — локальный учебный корпус, не включён в Git.
 

@@ -4,7 +4,8 @@
 # ///
 """Последовательно проверить примеры в КОМПАС и получить JPEG для каталога.
 
-Запуск: bash scripts/run.sh scripts/run_examples.py --output-dir /новый/каталог
+Из корня репозитория:
+bash skills/kompass-3d-skill/scripts/run.sh tools/run_examples.py --output-dir /новый/каталог
 Нужна существующая API-сессия. Чужие документы не редактируются и не закрываются.
 Модели временные; на диске остаются только JPEG и verification.json.
 """
@@ -22,7 +23,7 @@ from constants import constants as c
 from constants3d import constants as c3d
 from PIL import Image
 
-EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
+EXAMPLES = Path(__file__).resolve().parents[1] / "skills" / "kompass-3d-skill" / "examples"
 PARTS = ["01_plate", "02_ring", "03_holes", "04_revolve", "05_offset_plane",
          "06_loft", "07_body_pattern", "08_boolean", "09_reposition",
          "11_fillet_edit", "12_chamfer", "13_native_hole", "14_shell", "15_linear_pattern"]

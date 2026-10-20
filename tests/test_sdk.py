@@ -205,34 +205,6 @@ class SdkTests(unittest.TestCase):
         self.assertEqual(result["results"][0]["symbol"], "constants3d.constants.o3d_planeXOY")
         self.assertEqual(sdk.search_constants(self.root, "ksDocumentPart", 5)["total"], 1)
 
-    def test_launcher_consumes_port_without_executing_kompas(self):
-        launcher = sdk.SKILL_DIR / "scripts/launch-api.sh"
-        # Override bash exec before sourcing: inspect arguments, never start CAD.
-        command = 'exec() { printf "%s\\n" "$@"; }; launcher="$1"; shift; source "$launcher"'
-        env = {**os.environ, "KOMPAS_BIN": str(self.root)}
-        for arguments, expected in (
-            ([], ["-APIServer=10500"]),
-            (["10501", "--probe"], ["-APIServer=10501", "--probe"]),
-            (["00080"], ["-APIServer=80"]),
-        ):
-            with self.subTest(arguments=arguments):
-                result = subprocess.run(
-                    ["bash", "-c", command, "launcher-test", str(launcher), *arguments],
-                    capture_output=True, text=True, check=True, timeout=5, env=env,
-                )
-                self.assertEqual(
-                    result.stdout.splitlines(),
-                    [str(self.root / "kKompas"), *expected],
-                )
-        for port in ("0", "65536", "-1", "abc", "1+2"):
-            with self.subTest(port=port):
-                result = subprocess.run(
-                    ["bash", str(launcher), port], capture_output=True, text=True,
-                    timeout=5, env=env,
-                )
-                self.assertEqual(result.returncode, 1)
-                self.assertIn("Invalid API port", result.stderr)
-
     def test_runner_imports_custom_sdk_and_preserves_arguments_and_cwd(self):
         macro = self.root / "macro with spaces.py"
         macro.write_text(
