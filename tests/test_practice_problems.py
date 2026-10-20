@@ -33,6 +33,10 @@ class PracticeProblemTests(unittest.TestCase):
                 self.assertIn(f"![Чертёж]({document.with_suffix('.jpg').name})", text)
                 preview = f"![ПРЕВЬЮ]({document.stem.removesuffix('_ENG')}_preview.jpg)"
                 self.assertEqual(text.count(preview), 1)
+                self.assertEqual(text.count("## Превью\n"), 1)
+                self.assertEqual(text.count("## Чертёж\n"), 1)
+                self.assertIn(f"## Превью\n\n{preview}", text)
+                self.assertIn(f"## Чертёж\n\n![Чертёж]({document.with_suffix('.jpg').name})", text)
                 self.assertLess(text.index(preview), text.index("![Чертёж]"))
                 self.assertNotIn("[Исходный PDF]", text)
                 for url in re.findall(r'\]\(([^)]+)\)', text):
@@ -80,7 +84,8 @@ class PracticeProblemTests(unittest.TestCase):
             original = text.split("## Текст задания\n\n", 1)[1]
             regenerated = self.markdown(document.with_suffix(".pdf"), original)
             preview = f"![ПРЕВЬЮ]({document.stem.removesuffix('_ENG')}_preview.jpg)"
-            self.assertIn(preview, regenerated, document)
+            self.assertIn(f"## Превью\n\n{preview}", regenerated, document)
+            self.assertIn("## Чертёж\n\n![Чертёж]", regenerated, document)
             self.assertLess(regenerated.index(preview), regenerated.index("![Чертёж]"))
             section = self.dependencies(document.with_suffix(".pdf"), original)
             if section:

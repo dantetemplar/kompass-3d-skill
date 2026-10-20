@@ -40,13 +40,20 @@ def download(document):
             image.verify()
         with target.open("xb") as output:
             output.write(response.content)
-    text = document.read_text()
-    preview = f"![ПРЕВЬЮ]({quote(target.name)})\n\n"
+    original = document.read_text()
+    text = original
+    preview = f"![ПРЕВЬЮ]({quote(target.name)})"
     drawing = f"![Чертёж]({quote(document.with_suffix('.jpg').name)})"
+    if text.count(drawing) != 1:
+        raise ValueError(f"Expected one drawing link: {document}")
     if preview not in text:
-        if text.count(drawing) != 1:
-            raise ValueError(f"Expected one drawing link: {document}")
-        document.write_text(text.replace(drawing, preview + drawing))
+        anchor = "## Чертёж" if "## Чертёж" in text else drawing
+        text = text.replace(anchor, preview + "\n\n" + anchor, 1)
+    for heading, image in (("## Превью", preview), ("## Чертёж", drawing)):
+        if heading not in text:
+            text = text.replace(image, heading + "\n\n" + image, 1)
+    if text != original:
+        document.write_text(text)
     return f"OK {stem}"
 
 
