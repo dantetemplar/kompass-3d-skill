@@ -5,3 +5,5 @@ __pycache__/
 *.tar.gz
 *~
 .DS_Store
+PracticeProblems_ALL250_CSWA/**/*.pdf
+PracticeProblems_ALL250_CSWA/**/*.zip
