@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 from io import BytesIO
 from pathlib import Path
+from os.path import relpath
 import re
 from urllib.parse import quote
 from zipfile import ZipFile
@@ -67,13 +68,16 @@ def extract(pdf: Path) -> tuple[Image.Image, str]:
 
 def dependencies(pdf: Path, text: str) -> str:
     """Describe audited source components, prerequisite tasks and source errata."""
-    problem = re.fullmatch(r"PracticeProblems_(\d+)_(\d+)([ABC]?)_ENG", pdf.stem)
+    problem = re.fullmatch(r"PracticeProblems_(\d+)_(\d+)([A-Z]?)_ENG", pdf.stem)
     if problem is None:
         return ""
     level, number, _ = problem.groups()
     sections = []
-    if level == "9":
-        archive = pdf.with_name(f"PracticeProblems_9_{number}.zip")
+    archive_candidates = [pdf.with_suffix(".zip"),
+                          pdf.with_name(f"PracticeProblems_{level}_{number}.zip"),
+                          pdf.with_name(f"PracticeProblems_{level}_{number}A_ENG.zip")]
+    archive = next((path for path in archive_candidates if path.is_file()), None)
+    if archive is not None:
         with ZipFile(archive) as source:
             names = [item.filename for item in source.infolist() if not item.is_dir()]
         sections.append(
@@ -83,8 +87,43 @@ def dependencies(pdf: Path, text: str) -> str:
             "Распакуйте все файлы в один каталог, сохранив имена и структуру. "
             "Это исходные детали/подсборки SOLIDWORKS (`.SLDPRT`, `.SLDASM`), "
             "не готовые модели КОМПАС. Совместимость импорта в КОМПАС здесь не проверена.\n\n"
+            "Оригинальный ZIP сохранён без изменений и может включать PDF условия; "
+            "отдельные PDF в Git не добавляются.\n\n"
             "Состав архива:\n" + "\n".join(f"- `{name}`" for name in names) + "\n"
         )
+    if level == "15" and number == "7":
+        sections.append("Общая стартовая модель без PDF: "
+                        "[PracticeProblems_15_7.zip](PracticeProblems_15_7.zip).\n")
+    related = sorted({path.with_suffix(".md")
+                      for path in pdf.parent.glob(f"PracticeProblems_{level}_{number}[A-Z]_ENG.*")
+                      if path.suffix in {".pdf", ".md"} and path.stem != pdf.stem})
+    if related:
+        sections.append("## Связанные этапы и листы\n\n" + ", ".join(
+            f"[{path.stem.removeprefix('PracticeProblems_').removesuffix('_ENG').replace('_', '.')}]"
+            f"({quote(path.with_suffix('.md').name)})" for path in related) + ".\n")
+    explicit_dependencies = {
+        "PracticeProblems_13_9B_ENG": ("13", "9A"),
+        "PracticeProblems_14_4_ENG": ("13", "4"),
+        "PracticeProblems_14_6B_ENG": ("14", "4"),
+        "PracticeProblems_18_24_ENG": ("18", "1"),
+        "PracticeProblems_18_25_ENG": ("18", "3"),
+    }
+    key = pdf.stem
+    if key in explicit_dependencies:
+        previous_level, previous_number = explicit_dependencies[key]
+        targets = sorted({path.with_suffix(".md") for path in pdf.parent.parent.glob(
+            f"Level{int(previous_level):02d}_*/PracticeProblems_{previous_level}_{previous_number}_ENG.*")
+            if path.suffix in {".pdf", ".md"}})
+        if len(targets) != 1:
+            raise ValueError(f"Не найдено исходное задание: {key}")
+        target = targets[0].with_suffix(".md")
+        sections.append("## Исходное задание\n\n"
+                        f"Используйте результат [{previous_level}.{previous_number}]"
+                        f"({quote(relpath(target, pdf.parent))})"
+                        + (" или стартовую модель из ZIP.\n" if archive else ".\n"))
+    elif level == "18" and problem.group(3) == "B" and number in {"5", "6", "7", "8", "9", "12", "20"}:
+        sections.append("## Предыдущее задание\n\n"
+                        f"Измените деталь из [18.{number}A](PracticeProblems_18_{number}A_ENG.md).\n")
     previous = re.search(r"HINT:\s*Start with the (\d+)\.(\d+[ABC]?)\s+(assembly|part)\.", text)
     if previous:
         previous_level, previous_number, kind = previous.groups()
@@ -164,35 +203,50 @@ def main(argv=None):
         "--overwrite", action="store_true",
         help="Перезаписать ранее извлечённые JPG и Markdown",
     )
+    parser.add_argument("--markdown-only", action="store_true",
+                        help="Обновить только Markdown, не извлекая JPEG повторно")
+    parser.add_argument("--exclude", action="append", default=[], metavar="FILENAME",
+                        help="Явно исключить исходник по имени, например защищённый паролем PDF")
     args = parser.parse_args(argv)
     directory = args.directory.expanduser().resolve()
     if not directory.is_dir():
         parser.error(f"Каталог не существует: {directory}")
     pdfs = sorted(
         (path for path in directory.iterdir()
-         if path.is_file() and path.suffix.lower() == ".pdf"),
+         if path.is_file() and path.suffix.lower() == ".pdf" and path.name not in args.exclude),
         key=lambda path: path.name,
     )
     if not pdfs:
         parser.error(f"В каталоге нет PDF: {directory}")
 
     for pdf in pdfs:
-        for target in (pdf.with_suffix(".jpg"), pdf.with_suffix(".md")):
+        targets = (pdf.with_suffix(".md"),) if args.markdown_only else (pdf.with_suffix(".jpg"), pdf.with_suffix(".md"))
+        for target in targets:
             if target.is_symlink():
                 parser.error(f"Выходной путь — символическая ссылка: {target}")
             if target.exists() and (not args.overwrite or not target.is_file()):
                 parser.error(f"Выход уже существует: {target}; используйте --overwrite")
 
     for pdf in pdfs:
-        drawing, text = extract(pdf)
         image_path = pdf.with_suffix(".jpg")
         text_path = pdf.with_suffix(".md")
-        with image_path.open("wb" if args.overwrite else "xb") as output:
-            drawing.save(output, format="JPEG", quality=95, subsampling=0)
+        if args.markdown_only:
+            if not image_path.is_file():
+                parser.error(f"Нет ранее извлечённого JPEG: {image_path}")
+            with pymupdf.open(pdf) as document:
+                text = "\n".join(page.get_text("text") for page in document).strip()
+            if not text:
+                parser.error(f"Пустой текстовый слой: {pdf}")
+        else:
+            drawing, text = extract(pdf)
+            with image_path.open("wb" if args.overwrite else "xb") as output:
+                drawing.save(output, format="JPEG", quality=95, subsampling=0)
         with text_path.open("w" if args.overwrite else "x", encoding="utf-8") as output:
             output.write(markdown(pdf, text))
-        print(f"{pdf.name} -> {image_path.name} ({drawing.width}x{drawing.height}), {text_path.name}")
-    print(f"Готово: {len(pdfs)} JPG и {len(pdfs)} Markdown")
+        print(f"{pdf.name} -> {text_path.name}" if args.markdown_only else
+              f"{pdf.name} -> {image_path.name} ({drawing.width}x{drawing.height}), {text_path.name}")
+    print(f"Готово: {len(pdfs)} Markdown" if args.markdown_only else
+          f"Готово: {len(pdfs)} JPG и {len(pdfs)} Markdown")
 
 
 if __name__ == "__main__":

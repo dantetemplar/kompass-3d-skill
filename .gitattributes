@@ -1,4 +1,4 @@
 *.m3d filter=lfs diff=lfs merge=lfs -text
 *.jpg filter=lfs diff=lfs merge=lfs -text
 PracticeProblems_ALL250_CSWA/**/*.md filter=lfs diff=lfs merge=lfs -text
-PracticeProblems_ALL250_CSWA/Level09_AssembliesMates/*.zip filter=lfs diff=lfs merge=lfs -text
+PracticeProblems_ALL250_CSWA/**/*.zip filter=lfs diff=lfs merge=lfs -text

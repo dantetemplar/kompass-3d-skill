@@ -2,6 +2,7 @@
 import ast
 from collections import Counter
 from pathlib import Path
+from os.path import relpath
 import re
 import unittest
 from urllib.parse import quote, unquote
@@ -17,13 +18,13 @@ class PracticeProblemTests(unittest.TestCase):
         tree = ast.parse((REPOSITORY / "tools/extract_pdf.py").read_text())
         functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)
                      and node.name in {"dependencies", "markdown"}]
-        namespace = {"Path": Path, "re": re, "quote": quote, "ZipFile": ZipFile}
+        namespace = {"Path": Path, "re": re, "quote": quote, "ZipFile": ZipFile, "relpath": relpath}
         exec(compile(ast.Module(body=functions, type_ignores=[]), "extract-markdown", "exec"), namespace)
         cls.dependencies = staticmethod(namespace["dependencies"])
 
     def test_all_tasks_have_drawings_and_valid_local_links(self):
         documents = sorted(CORPUS.glob("Level*/*.md"))
-        self.assertEqual(len(documents), 250)
+        self.assertEqual(len(documents), 364)
         for document in documents:
             with self.subTest(document=document):
                 text = document.read_text()
@@ -54,6 +55,20 @@ class PracticeProblemTests(unittest.TestCase):
         self.assertEqual(len(linked), 10)
         self.assertEqual(linked, set(directory.glob("*.zip")))
 
+    def test_all_component_archives_are_referenced_and_valid(self):
+        linked = set()
+        for document in CORPUS.glob("Level*/*.md"):
+            for url in re.findall(r'\]\(([^)]+\.zip)\)', document.read_text()):
+                linked.add((document.parent / unquote(url)).resolve())
+        archives = set(path.resolve() for path in CORPUS.glob("Level*/*.zip"))
+        self.assertEqual(len(archives), 32)
+        self.assertEqual(linked, archives)
+        for archive in archives:
+            with self.subTest(archive=archive), ZipFile(archive) as source:
+                self.assertIsNone(source.testzip())
+                self.assertTrue(any(Path(item.filename).suffix.lower() in {".sldprt", ".sldasm"}
+                                    for item in source.infolist()))
+
     def test_dependency_sections_survive_regeneration(self):
         counts = Counter()
         for document in sorted(CORPUS.glob("Level*/*.md")):
@@ -64,7 +79,8 @@ class PracticeProblemTests(unittest.TestCase):
                 self.assertIn(section, text, document)
             if "## Предыдущее задание" in section:
                 counts[document.parent.name] += 1
-        self.assertEqual(counts, {"Level09_AssembliesMates": 6, "Level10_CSWAExamLevel": 9})
+        self.assertEqual(counts, {"Level09_AssembliesMates": 6, "Level10_CSWAExamLevel": 9,
+                                  "Level18_CSWPExamLevel": 7})
 
     def test_source_errata_are_explicit_and_original_wording_is_preserved(self):
         directory = CORPUS / "Level10_CSWAExamLevel"

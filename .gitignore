@@ -6,5 +6,3 @@ __pycache__/
 *~
 .DS_Store
 PracticeProblems_ALL250_CSWA/**/*.pdf
-PracticeProblems_ALL250_CSWA/**/*.zip
-!PracticeProblems_ALL250_CSWA/Level09_AssembliesMates/*.zip
