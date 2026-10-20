@@ -21,6 +21,7 @@ from io import BytesIO
 from pathlib import Path
 import re
 from urllib.parse import quote
+from zipfile import ZipFile
 
 from PIL import Image
 import pymupdf
@@ -64,6 +65,59 @@ def extract(pdf: Path) -> tuple[Image.Image, str]:
         return drawing, text + "\n"
 
 
+def dependencies(pdf: Path, text: str) -> str:
+    """Describe audited source components, prerequisite tasks and source errata."""
+    problem = re.fullmatch(r"PracticeProblems_(\d+)_(\d+)([ABC]?)_ENG", pdf.stem)
+    if problem is None:
+        return ""
+    level, number, _ = problem.groups()
+    sections = []
+    if level == "9":
+        archive = pdf.with_name(f"PracticeProblems_9_{number}.zip")
+        with ZipFile(archive) as source:
+            names = [item.filename for item in source.infolist() if not item.is_dir()]
+        sections.append(
+            "## Исходные компоненты\n\n"
+            f"[Компоненты SOLIDWORKS (ZIP)]({quote(archive.name)}) — "
+            f"{len(names)} файлов; архив хранится в Git LFS.\n\n"
+            "Распакуйте все файлы в один каталог, сохранив имена и структуру. "
+            "Это исходные детали/подсборки SOLIDWORKS (`.SLDPRT`, `.SLDASM`), "
+            "не готовые модели КОМПАС. Совместимость импорта в КОМПАС здесь не проверена.\n\n"
+            "Состав архива:\n" + "\n".join(f"- `{name}`" for name in names) + "\n"
+        )
+    previous = re.search(r"HINT:\s*Start with the (\d+)\.(\d+[ABC]?)\s+(assembly|part)\.", text)
+    if previous:
+        previous_level, previous_number, kind = previous.groups()
+        if pdf.stem == "PracticeProblems_10_7C_ENG":
+            previous_level, previous_number = "10", "7B"
+        if previous_level != level:
+            raise ValueError(f"Не проверена межуровневая зависимость: {pdf}")
+        filename = f"PracticeProblems_{previous_level}_{previous_number}_ENG.md"
+        if not pdf.with_name(filename).is_file():
+            raise ValueError(f"Нет предыдущего задания: {filename}")
+        model = "сборку" if kind == "assembly" else "деталь"
+        sections.append(
+            "## Предыдущее задание\n\n"
+            f"Сначала выполните [{previous_level}.{previous_number}]({quote(filename)}), "
+            f"затем изменяйте полученную {model}. Задание не является независимым.\n"
+        )
+    if pdf.stem == "PracticeProblems_10_7C_ENG":
+        sections.append(
+            "## Примечание к оригиналу\n\n"
+            "В исходном условии написано «Start with the 9.7B part». "
+            "Вероятная опечатка: имеется в виду деталь из 10.7B; "
+            "исходная формулировка ниже сохранена без исправления.\n"
+        )
+    if pdf.stem == "PracticeProblems_9_10_ENG":
+        sections.append(
+            "## Примечание к оригиналу\n\n"
+            "В исходном условии ошибочно указан раздел «Revolve Boss/Cut (Level 6)». "
+            "По номеру, компонентам и операциям это задание на сборку Level 9; "
+            "исходный заголовок ниже сохранён без исправления.\n"
+        )
+    return "\n".join(sections) + ("\n" if sections else "")
+
+
 def markdown(pdf: Path, text: str) -> str:
     title = pdf.stem.replace("_", " ")
     text = re.sub(
@@ -95,6 +149,7 @@ def markdown(pdf: Path, text: str) -> str:
     return (
         f"# {title}\n\n"
         f"![Чертёж]({quote(pdf.with_suffix('.jpg').name)})\n\n"
+        f"{dependencies(pdf, text)}"
         f"## Текст задания\n\n{body}\n"
     )
 
