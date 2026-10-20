@@ -14,19 +14,7 @@ npx skills add dantetemplar/kompass-3d-skill --skill kompass-3d-skill -g -a curs
 
 Для приватного репозитория необходимы доступ к нему и настроенная Git-аутентификация.
 
-Для локальной разработки можно подключить каталог скилла из уже клонированного репозитория. Замените абсолютный путь в примере; ссылка создаётся только при отсутствии назначения, существующий каталог или ссылка не заменяются:
-
-```bash
-REPO=/absolute/path/to/kompass-3d-skill
-mkdir -p ~/.cursor/skills
-if [ ! -e ~/.cursor/skills/kompass-3d-skill ] && [ ! -L ~/.cursor/skills/kompass-3d-skill ]; then
-    ln -s "$REPO/skills/kompass-3d-skill" ~/.cursor/skills/kompass-3d-skill
-fi
-```
-
-Главная инструкция — [SKILL.md](skills/kompass-3d-skill/SKILL.md), готовые маршруты — [references/recipes.md](skills/kompass-3d-skill/references/recipes.md), примеры — [examples/](skills/kompass-3d-skill/examples/). Запрос агенту: «Используй kompass-3d-skill и создай деталь по подходящему рецепту».
-
-Скилл автономен: для работы нужен только установленный каталог скилла, не исходный репозиторий. Команды ниже выполняются из `~/.cursor/skills/kompass-3d-skill`; при другой установке замените путь в `cd`.
+Запрос агенту: «Используй kompass-3d-skill и создай деталь по подходящему рецепту».
 
 ## Подготовка SDK
 
