@@ -60,16 +60,16 @@ cd ~/.cursor/skills/kompass-3d-skill
 
 Обычный запуск из меню не создаёт API-сессию. Макросы подключаются через `ksapi.GetKompas()`; автоматически КОМПАС не запускают. Произвольные зависимости задаются в самом макросе через PEP 723 и устанавливаются `uv`; `ksapi` берётся из установленного КОМПАС, не из PyPI.
 
-Учебные макросы находятся в [examples/macros/](skills/kompass-3d-skill/examples/macros/):
+Тестовые макросы находятся в корневом [macros/](macros/) и не входят в устанавливаемый скилл. Запускайте из корня репозитория:
 
 ```bash
-cd ~/.cursor/skills/kompass-3d-skill
-./scripts/run.sh examples/macros/hello_box.py
-./scripts/run.sh examples/macros/draw_rectangle.py
-./scripts/run.sh examples/macros/touch_active.py ~/kompas-models/model.m3d
+cd /absolute/path/to/kompass-3d-skill
+bash skills/kompass-3d-skill/scripts/run.sh macros/hello_box.py
+bash skills/kompass-3d-skill/scripts/run.sh macros/draw_rectangle.py
+bash skills/kompass-3d-skill/scripts/run.sh macros/touch_active.py ~/kompas-models/model.m3d
 ```
 
-`touch_active.py` меняет документ без автоматического сохранения. Используйте копию модели. Галерея и статусы проверки операций описаны в [references/examples.md](skills/kompass-3d-skill/references/examples.md).
+`touch_active.py` меняет документ без автоматического сохранения. Используйте копию модели. Документация разработки, галерея и статусы проверки операций описаны в [examples.md](examples.md).
 
 ## Проверки без КОМПАС
 
@@ -105,7 +105,8 @@ bash skills/kompass-3d-skill/scripts/run.sh tools/run_examples.py --only 02_ring
 
 - `skills/kompass-3d-skill/` — автономный переносимый скилл: `SKILL.md`, `references/`, `examples/`, `scripts/`.
 - `skills/kompass-3d-skill/scripts/prepare/` — офлайн-подготовка справки и типизированных стабов.
-- `skills/kompass-3d-skill/examples/macros/` — вводные макросы.
+- `macros/` — тестовые макросы разработки, не входят в устанавливаемый скилл.
+- `examples.md` — документация разработки: запуск примеров, проверки и измерения.
 - `skills/kompass-3d-skill/.cache/` — локальные справка и стабы, не включены в Git.
 - `tests/` — тесты разработки репозитория, не входят в устанавливаемый скилл.
 - `tools/` — инструменты разработки: регрессия галереи и генерация JPEG.

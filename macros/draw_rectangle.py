@@ -6,7 +6,7 @@
 """Макрос: новый чертёж + прямоугольник 100×60 мм + две диагонали.
 
 Запуск (API-сессия уже запущена пользователем):
-  ./run.sh draw_rectangle.py
+  bash skills/kompass-3d-skill/scripts/run.sh macros/draw_rectangle.py
 """
 
 from __future__ import annotations

@@ -192,7 +192,6 @@ uv run --script scripts/sdk.py verify --brief ISketch.BeginEdit IExtrusion.SetSi
 Справочные ссылки ниже не являются списком обязательного чтения.
 
 - [Рецепты](references/recipes.md) и [основа макроса](examples/basic_part.py) — готовые реализации для адаптации и уточнения деталей.
-- [Запуск и проверка примеров](references/examples.md) — команды, регрессия галереи, отчёты и измерения; читать только при соответствующей задаче.
 - [Нативный KsAPI: цепочки, маршалинг и кривые](references/ksapi.md) — подробности при диагностике.
 - [Официальный SDK v25](https://help.ascon.ru/KOMPAS_SDK/25/ru-RU/) — назначение и ограничения операций.
 - [dwnmf/kompas_3d_api](https://github.com/dwnmf/kompas_3d_api) — исходный конвертер WebHelp; наш корпус собирается из локального SDK, права на документацию принадлежат её правообладателям.

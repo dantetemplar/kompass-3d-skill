@@ -70,6 +70,24 @@ class GalleryTests(unittest.TestCase):
         self.assertEqual(list(ROOT.rglob("*.sh")), [ROOT / "scripts/run.sh"])
         self.assertFalse((ROOT / "scripts/run_examples.py").exists())
 
+    def test_development_assets_are_outside_the_skill(self):
+        repository = ROOT.parents[1]
+        self.assertFalse((EXAMPLES / "macros").exists())
+        self.assertFalse((ROOT / "references/examples.md").exists())
+        for name in ("hello_box", "draw_rectangle", "touch_active"):
+            self.assertTrue((repository / "macros" / f"{name}.py").is_file())
+        self.assertTrue((repository / "examples.md").is_file())
+
+    def test_documentation_local_links_exist(self):
+        repository = ROOT.parents[1]
+        documents = [repository / "README.md", repository / "examples.md",
+                     ROOT / "SKILL.md", *sorted((ROOT / "references").glob("*.md"))]
+        for document in documents:
+            for url in re.findall(r'\]\(([^)]+)\)', document.read_text()):
+                if "://" not in url and not url.startswith("#"):
+                    with self.subTest(document=document, url=url):
+                        self.assertTrue((document.parent / url.split("#")[0]).exists(), url)
+
     def test_gallery_local_links_exist(self):
         text = (ROOT / "references/recipes.md").read_text()
         for name in NAMES:

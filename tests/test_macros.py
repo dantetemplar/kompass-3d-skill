@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 
-from skill_paths import SKILL_DIR
+MACROS_DIR = Path(__file__).resolve().parents[1] / "macros"
 
 
 def load_macro(name):
@@ -19,7 +19,7 @@ def load_macro(name):
     constants.constants = SimpleNamespace(
         ksDocumentDrawing=1, ksDocumentFragment=2, ksDocumentPart=3, ksDocumentAssembly=4,
     )
-    spec = importlib.util.spec_from_file_location(name, SKILL_DIR / "examples" / "macros" / f"{name}.py")
+    spec = importlib.util.spec_from_file_location(name, MACROS_DIR / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     with patch.dict(sys.modules, {"ksapi": api, "constants": constants}), patch.object(
         sys, "path", list(sys.path)

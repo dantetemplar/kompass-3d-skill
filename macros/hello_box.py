@@ -7,7 +7,7 @@
 
 Запуск (API-сессия уже запущена пользователем):
   cd macros
-  ./run.sh hello_box.py
+  bash skills/kompass-3d-skill/scripts/run.sh macros/hello_box.py
 """
 
 from __future__ import annotations

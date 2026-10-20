@@ -14,8 +14,8 @@
   КОМПАС не сможет сохранить. Копируй в обычную папку.
 
 Запуск:
-  ./run.sh touch_active.py
-  ./run.sh touch_active.py ~/kompas-models/model.m3d
+  bash skills/kompass-3d-skill/scripts/run.sh macros/touch_active.py
+  bash skills/kompass-3d-skill/scripts/run.sh macros/touch_active.py ~/kompas-models/model.m3d
 """
 
 from __future__ import annotations
@@ -123,7 +123,7 @@ def main() -> int:
     elif not doc:
         raise RuntimeError(
             "Нет активного документа. Открой модель в ЭТОМ окне КОМПАС "
-            "(API-сессия) или: ./run.sh touch_active.py /path/to/file"
+            "(API-сессия) или: bash skills/kompass-3d-skill/scripts/run.sh macros/touch_active.py /path/to/file"
         )
 
     if not doc:
