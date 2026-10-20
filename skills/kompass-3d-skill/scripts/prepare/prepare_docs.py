@@ -14,7 +14,7 @@ from docs import prepare_docs
 from environment import validate_environment, validate_output
 
 DEFAULT_INSTALL = Path("/opt/ascon/kompas3d-v25")
-DEFAULT_OUT = Path(__file__).resolve().parents[1] / ".cache" / "kompas-sdk-docs"
+DEFAULT_OUT = Path(__file__).resolve().parents[2] / ".cache" / "kompas-sdk-docs"
 
 
 def main(argv: list[str] | None = None) -> int:

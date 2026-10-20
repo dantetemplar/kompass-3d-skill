@@ -1,6 +1,8 @@
 """The pipeline must not execute input code, access network or load native libraries."""
 from __future__ import annotations
 
+import skill_paths
+
 from contextlib import ExitStack
 import encodings.cp437
 import encodings.utf_16_le

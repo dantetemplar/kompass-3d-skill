@@ -1,5 +1,5 @@
 {
-    "python.analysis.stubPath": ".cache/kompas-stubs",
+    "python.analysis.stubPath": "skills/kompass-3d-skill/.cache/kompas-stubs",
     "python-envs.pythonProjects": [
         {
             "path": ".",

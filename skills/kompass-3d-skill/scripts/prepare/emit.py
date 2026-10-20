@@ -21,7 +21,7 @@ class Documentation:
         if not path.is_file():
             raise FileNotFoundError(
                 f"Documentation index is missing: {path}\n"
-                "Generate it first: uv run --script prepare/prepare_docs.py"
+                "Generate it first: uv run --script scripts/prepare/prepare_docs.py"
             )
         self.path = path
         self.pages: list[dict[str, Any]] = []

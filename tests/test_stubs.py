@@ -1,6 +1,8 @@
 """Offline fixtures: a source import is deliberately fatal."""
 from __future__ import annotations
 
+import skill_paths
+
 import ast
 import json
 import tempfile
@@ -233,7 +235,7 @@ class Value:
         self.assertNotIn("self, old", text)
 
     def test_missing_docs_actionable(self):
-        with self.assertRaisesRegex(FileNotFoundError, "prepare/prepare_docs.py"):
+        with self.assertRaisesRegex(FileNotFoundError, "scripts/prepare/prepare_docs.py"):
             Documentation(self.root / "missing.jsonl")
 
     def test_native_filename_and_ambiguous_mapping(self):

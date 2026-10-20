@@ -4,18 +4,19 @@
 
 ## Подготовка базы документации
 
-Из корня исходного репозитория, с установленным SDK и локальным Python:
+Из каталога установленного скилла, с установленным SDK и локальным Python 3.11+; исходный репозиторий не требуется. Для другой установки замените путь в `cd`:
 
 ```bash
+cd ~/.cursor/skills/kompass-3d-skill
 export LD_LIBRARY_PATH="/opt/ascon/kompas3d-v25/Bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export PYTHONPATH="/opt/ascon/kompas3d-v25/Bin${PYTHONPATH:+:$PYTHONPATH}"
 export UV_OFFLINE=1
 export UV_PYTHON_DOWNLOADS=never
-uv run --script prepare/prepare_docs.py
-uv run --script prepare/prepare_stubs.py
+uv run --script scripts/prepare/prepare_docs.py
+uv run --script scripts/prepare/prepare_stubs.py
 ```
 
-Подготовка читает официальную WebHelp и метаданные установленного SDK, не импортирует `ksapi`, не запускает CAD и не использует сеть. `--help` обоих скриптов описывает выбор установки и выходов. Документация и SQLite FTS5-индекс находятся в `.cache/kompas-sdk-docs` внутри скилла; стабы с подробными docstrings и отчёт типизации — в `.cache/kompas-stubs` корня репозитория. IDE использует стабы, runtime — исходные установленные модули. Manifest фиксирует источники, хеши и фактические счётчики; отчёт стабов перечисляет неизвестные типы и конфликты.
+Подготовка читает официальную WebHelp и метаданные установленного SDK, не импортирует `ksapi`, не запускает CAD и не использует сеть. `--help` обоих скриптов описывает выбор установки и выходов. Документация и SQLite FTS5-индекс находятся в `.cache/kompas-sdk-docs`, стабы с подробными docstrings и отчёт типизации — в `.cache/kompas-stubs`; оба каталога расположены внутри установленного скилла. IDE использует стабы, runtime — исходные установленные модули. Manifest фиксирует источники, хеши и фактические счётчики; отчёт стабов перечисляет неизвестные типы и конфликты.
 
 При переносе скилла копировать подготовленный кэш вместе с ним. Другой индекс указать через `sdk.py --docs /path/to/docs` или `KOMPAS_SDK_DOCS`. Если индекса нет, инструмент завершится с указанием команды подготовки, ничего не скачивая.
 

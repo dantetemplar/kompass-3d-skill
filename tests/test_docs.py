@@ -1,5 +1,7 @@
-"""Run with python3 -m unittest discover -s prepare -p test_docs.py."""
+"""Run with python3 -m unittest discover -s tests -p test_docs.py."""
 from __future__ import annotations
+
+import skill_paths
 
 import hashlib
 import json

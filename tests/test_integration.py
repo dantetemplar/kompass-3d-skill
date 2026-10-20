@@ -1,6 +1,8 @@
 """Integration between independently generated documentation and the portable reader."""
 from __future__ import annotations
 
+from skill_paths import SCRIPTS_DIR
+
 import importlib.util
 import json
 from pathlib import Path
@@ -12,7 +14,7 @@ from zipfile import ZipFile
 
 from docs import NATIVE_SECTION, prepare_docs
 
-SKILL_SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+SKILL_SCRIPTS = SCRIPTS_DIR
 spec = importlib.util.spec_from_file_location("portable_sdk_index", SKILL_SCRIPTS / "sdk_index.py")
 reader = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(reader)

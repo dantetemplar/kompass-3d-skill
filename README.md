@@ -6,37 +6,52 @@
 
 ## Подключение скилла
 
-Клонируйте репозиторий в каталог скиллов вашего агента, например для Cursor:
+Установка для Cursor:
 
 ```bash
-git clone https://github.com/dantetemplar/kompass-3d-skill.git ~/.cursor/skills/kompass-3d-skill
-cd ~/.cursor/skills/kompass-3d-skill
+npx skills add dantetemplar/kompass-3d-skill --skill kompass-3d-skill -g -a cursor
 ```
 
-Главная инструкция — [SKILL.md](SKILL.md), готовые маршруты — [references/recipes.md](references/recipes.md), примеры — [examples/](examples/). Запрос агенту: «Используй kompass-3d-skill и создай деталь по подходящему рецепту».
+Для приватного репозитория необходимы доступ к нему и настроенная Git-аутентификация.
+
+Для локальной разработки можно подключить каталог скилла из уже клонированного репозитория. Замените абсолютный путь в примере; ссылка создаётся только при отсутствии назначения, существующий каталог или ссылка не заменяются:
+
+```bash
+REPO=/absolute/path/to/kompass-3d-skill
+mkdir -p ~/.cursor/skills
+if [ ! -e ~/.cursor/skills/kompass-3d-skill ] && [ ! -L ~/.cursor/skills/kompass-3d-skill ]; then
+    ln -s "$REPO/skills/kompass-3d-skill" ~/.cursor/skills/kompass-3d-skill
+fi
+```
+
+Главная инструкция — [SKILL.md](skills/kompass-3d-skill/SKILL.md), готовые маршруты — [references/recipes.md](skills/kompass-3d-skill/references/recipes.md), примеры — [examples/](skills/kompass-3d-skill/examples/). Запрос агенту: «Используй kompass-3d-skill и создай деталь по подходящему рецепту».
+
+Скилл автономен: для работы нужен только установленный каталог скилла, не исходный репозиторий. Команды ниже выполняются из `~/.cursor/skills/kompass-3d-skill`; при другой установке замените путь в `cd`.
 
 ## Подготовка SDK
 
-Справка и стабы генерируются офлайн из установленного SDK, не импортируют `ksapi` и не запускают КОМПАС. Выполните из корня репозитория:
+Справка и стабы генерируются офлайн из установленного SDK, не импортируют `ksapi` и не запускают КОМПАС. Выполните из каталога установленного скилла:
 
 ```bash
+cd ~/.cursor/skills/kompass-3d-skill
 export LD_LIBRARY_PATH="/opt/ascon/kompas3d-v25/Bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export PYTHONPATH="/opt/ascon/kompas3d-v25/Bin${PYTHONPATH:+:$PYTHONPATH}"
 export UV_OFFLINE=1
 export UV_PYTHON_DOWNLOADS=never
-uv run --script prepare/prepare_docs.py
-uv run --script prepare/prepare_stubs.py
+uv run --script scripts/prepare/prepare_docs.py
+uv run --script scripts/prepare/prepare_stubs.py
 ```
 
-Нужны подходящий локальный Python и установленный SDK; команды ничего не скачивают. `--help` описывает выбор установки и выходных каталогов. Справка сохраняется в `.cache/kompas-sdk-docs`, стабы — в `.cache/kompas-stubs`; кэши не включены в Git. При переносе подготовленного скилла копируйте `.cache` либо подготовьте SDK повторно. Для другого индекса используйте `KOMPAS_SDK_DOCS` или `scripts/sdk.py --docs /path/to/docs`.
+Нужны подходящий локальный Python и установленный SDK; команды ничего не скачивают. `--help` описывает выбор установки и выходных каталогов. Справка сохраняется в `.cache/kompas-sdk-docs`, стабы — в `.cache/kompas-stubs` внутри скилла; кэши не включены в Git. При переносе подготовленного скилла копируйте `.cache` либо подготовьте SDK повторно. Для другого индекса используйте `KOMPAS_SDK_DOCS` или `scripts/sdk.py --docs /path/to/docs`.
 
 ```bash
+cd ~/.cursor/skills/kompass-3d-skill
 python3 scripts/sdk.py search 'IExtrusions Add'
 python3 scripts/sdk.py page IExtrusions.Add ISketch.BeginEdit
 python3 scripts/sdk.py inspect IExtrusion.SetSideParameters --source
 ```
 
-По умолчанию используется нативный KsAPI; Windows API7/API5 доступны только при явном `--section`. Подробности — в [references/ksapi.md](references/ksapi.md).
+По умолчанию используется нативный KsAPI; Windows API7/API5 доступны только при явном `--section`. Подробности — в [references/ksapi.md](skills/kompass-3d-skill/references/ksapi.md).
 
 ## Запуск макросов
 
@@ -51,36 +66,47 @@ LC_ALL="${LC_ALL:-C.UTF-8}" \
 В другом терминале:
 
 ```bash
+cd ~/.cursor/skills/kompass-3d-skill
 ./scripts/run.sh /absolute/path/to/macro.py
 ```
 
 Обычный запуск из меню не создаёт API-сессию. Макросы подключаются через `ksapi.GetKompas()`; автоматически КОМПАС не запускают. Произвольные зависимости задаются в самом макросе через PEP 723 и устанавливаются `uv`; `ksapi` берётся из установленного КОМПАС, не из PyPI.
 
-Учебные макросы находятся в [macros/](macros/):
+Учебные макросы находятся в [examples/macros/](skills/kompass-3d-skill/examples/macros/):
 
 ```bash
-./macros/run.sh hello_box.py
-./macros/run.sh draw_rectangle.py
-./macros/run.sh touch_active.py ~/kompas-models/model.m3d
+cd ~/.cursor/skills/kompass-3d-skill
+./examples/macros/run.sh hello_box.py
+./examples/macros/run.sh draw_rectangle.py
+./examples/macros/run.sh touch_active.py ~/kompas-models/model.m3d
 ```
 
-`touch_active.py` меняет документ без автоматического сохранения. Используйте копию модели. Галерея и статусы проверки операций описаны в [references/examples.md](references/examples.md).
+`touch_active.py` меняет документ без автоматического сохранения. Используйте копию модели. Галерея и статусы проверки операций описаны в [references/examples.md](skills/kompass-3d-skill/references/examples.md).
 
 ## Проверки без КОМПАС
 
+Тесты разработки находятся вне скилла. Запускайте из корня репозитория:
+
 ```bash
-python3 -m unittest discover -s prepare
-python3 -m unittest discover -s scripts
-python3 -m unittest discover -s macros
+cd /absolute/path/to/kompass-3d-skill
+python3 -m unittest discover -s tests
 ```
 
-Проверка подготовленных стабов: `uv run --script prepare/check_stubs.py` (нужен локальный `mypy`); аудит артефактов: `uv run --script prepare/audit_artifacts.py`.
+Проверка подготовленных стабов и аудит артефактов выполняются из установленного скилла; для проверки стабов нужен локальный `mypy`:
+
+```bash
+cd ~/.cursor/skills/kompass-3d-skill
+uv run --script scripts/prepare/check_stubs.py
+uv run --script scripts/prepare/audit_artifacts.py
+```
 
 ## Состав
 
-- `SKILL.md`, `references/`, `examples/`, `scripts/` — переносимый скилл и инструменты SDK.
-- `prepare/` — офлайн-подготовка справки и типизированных стабов.
-- `macros/` — вводные макросы и проверки.
+- `skills/kompass-3d-skill/` — автономный переносимый скилл: `SKILL.md`, `references/`, `examples/`, `scripts/`.
+- `skills/kompass-3d-skill/scripts/prepare/` — офлайн-подготовка справки и типизированных стабов.
+- `skills/kompass-3d-skill/examples/macros/` — вводные макросы.
+- `skills/kompass-3d-skill/.cache/` — локальные справка и стабы, не включены в Git.
+- `tests/` — тесты разработки репозитория, не входят в устанавливаемый скилл.
 - `INSIGHTS.md` — существующие заметки исследования итеративной работы с КОМПАС.
 - `PracticeProblems_ALL250_CSWA/` — локальный учебный корпус, не включён в Git.
 

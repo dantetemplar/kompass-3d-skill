@@ -8,6 +8,9 @@ import unittest
 from unittest.mock import Mock, patch
 
 
+from skill_paths import SKILL_DIR
+
+
 def load_macro(name):
     api = ModuleType("ksapi")
     api.IKompasDocument2D = lambda doc: doc
@@ -16,7 +19,7 @@ def load_macro(name):
     constants.constants = SimpleNamespace(
         ksDocumentDrawing=1, ksDocumentFragment=2, ksDocumentPart=3, ksDocumentAssembly=4,
     )
-    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(f"{name}.py"))
+    spec = importlib.util.spec_from_file_location(name, SKILL_DIR / "examples" / "macros" / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     with patch.dict(sys.modules, {"ksapi": api, "constants": constants}), patch.object(
         sys, "path", list(sys.path)

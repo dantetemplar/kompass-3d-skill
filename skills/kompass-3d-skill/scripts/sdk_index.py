@@ -20,19 +20,19 @@ class Documentation:
         if not self.path.is_file():
             raise FileNotFoundError(
                 f"SDK index not found: {self.path}. "
-                "Run uv run --script prepare/prepare_docs.py with the installed KsAPI environment."
+                "Run uv run --script scripts/prepare/prepare_docs.py with the installed KsAPI environment."
             )
         self.connection = sqlite3.connect(self.path.resolve().as_uri() + "?mode=ro", uri=True)
         self.connection.row_factory = sqlite3.Row
         try:
             metadata = dict(self.connection.execute("SELECT key, value FROM meta"))
             if metadata.get("schema_version") != "1":
-                raise ValueError("Unsupported SDK index schema; rebuild with prepare/prepare_docs.py")
+                raise ValueError("Unsupported SDK index schema; rebuild with scripts/prepare/prepare_docs.py")
             manifest_path = self.path.parent / "llm/manifest.json"
             if manifest_path.is_file():
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 if manifest.get("source", {}).get("sha256") != metadata.get("source_sha256"):
-                    raise ValueError("Stale SDK index does not match manifest; rebuild with prepare/prepare_docs.py")
+                    raise ValueError("Stale SDK index does not match manifest; rebuild with scripts/prepare/prepare_docs.py")
         except (sqlite3.Error, ValueError):
             self.connection.close()
             raise

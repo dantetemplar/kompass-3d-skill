@@ -24,7 +24,7 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
-REPO = Path(__file__).resolve().parent.parent
+SKILL_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_INSTALL = Path("/opt/ascon/kompas3d-v25")
 DEFAULT_MYPY = "mypy"
 CONTROL_TYPES = {
@@ -264,7 +264,7 @@ def check_controls(tree: ast.Module, errors: list) -> int:
 
 def check_documentation(tree: ast.Module, docs: Path, errors: list) -> int:
     if not docs.is_file():
-        issue(errors, "docs_missing", str(docs), "run prepare/prepare_docs.py first")
+        issue(errors, "docs_missing", str(docs), "run scripts/prepare/prepare_docs.py first")
         return 0
     pages = [json.loads(line) for line in docs.read_text(encoding="utf-8").splitlines() if line.strip()]
     _, methods = inventory(tree)
@@ -542,8 +542,8 @@ def verify(install: Path, stubs: Path, docs: Path, metadata: Path, mypy: Path | 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--install", "--kompas-root", type=Path, default=DEFAULT_INSTALL)
-    parser.add_argument("--stubs", "--output", type=Path, default=REPO / ".cache/kompas-stubs")
-    parser.add_argument("--docs", type=Path, default=REPO / ".cache/kompas-sdk-docs/llm/pages.jsonl")
+    parser.add_argument("--stubs", "--output", type=Path, default=SKILL_DIR / ".cache/kompas-stubs")
+    parser.add_argument("--docs", type=Path, default=SKILL_DIR / ".cache/kompas-sdk-docs/llm/pages.jsonl")
     parser.add_argument("--metadata", type=Path)
     parser.add_argument("--mypy", default=DEFAULT_MYPY, help="mypy executable name on PATH or explicit executable path (default: mypy)")
     parser.add_argument("--report", type=Path)

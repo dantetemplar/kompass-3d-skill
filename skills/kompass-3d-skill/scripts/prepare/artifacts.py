@@ -36,11 +36,11 @@ def validate_documentation(docs_path: Path, install: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     package = manifest.get("package", {})
     if package.get("install") and Path(package["install"]).resolve() != install.resolve():
-        raise ValueError("Documentation belongs to a different SDK installation; rebuild prepare/prepare_docs.py")
+        raise ValueError("Documentation belongs to a different SDK installation; rebuild scripts/prepare/prepare_docs.py")
     source = manifest.get("source", {})
     source_path = Path(source.get("path", ""))
     if source_path.is_file() and file_identity(source_path)["sha256"] != source.get("sha256"):
-        raise ValueError("SDK help archive changed since extraction; rebuild prepare/prepare_docs.py")
+        raise ValueError("SDK help archive changed since extraction; rebuild scripts/prepare/prepare_docs.py")
 
 
 def unknown_annotations(files: dict[str, str]) -> list[dict]:

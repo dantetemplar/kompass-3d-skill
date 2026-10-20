@@ -13,10 +13,12 @@ from types import ModuleType, SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
+from skill_paths import SKILL_DIR
+
 
 def load_recipe(name="basic_part"):
     spec = importlib.util.spec_from_file_location(
-        name, Path(__file__).resolve().parents[1] / "examples" / f"{name}.py"
+        name, SKILL_DIR / "examples" / f"{name}.py"
     )
     recipe = importlib.util.module_from_spec(spec)
     api = ModuleType("ksapi")
@@ -407,8 +409,22 @@ class RecipeTests(unittest.TestCase):
 
 
 class SkillIntegrityTests(unittest.TestCase):
+    def test_installable_skill_excludes_repository_development_files(self):
+        self.assertTrue((SKILL_DIR / "SKILL.md").is_file())
+        self.assertFalse((SKILL_DIR.parent.parent / "SKILL.md").exists())
+        self.assertFalse(list(SKILL_DIR.rglob("test_*.py")))
+        for name in ("tests", ".git", ".vscode", "INSIGHTS.md"):
+            self.assertFalse((SKILL_DIR / name).exists(), name)
+        metadata = (SKILL_DIR / "SKILL.md").read_text().split("---", 2)[1]
+        fields = dict(line.split(": ", 1) for line in metadata.strip().splitlines())
+        self.assertEqual(fields["name"], SKILL_DIR.name)
+        self.assertRegex(fields["name"], r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+        self.assertLessEqual(len(fields["name"]), 64)
+        self.assertTrue(0 < len(fields["description"]) <= 1024)
+        self.assertTrue(0 < len(fields["compatibility"]) <= 500)
+
     def test_examples_import_only_stdlib_and_native_sdk(self):
-        root = Path(__file__).resolve().parents[1]
+        root = SKILL_DIR
         allowed = sys.stdlib_module_names | {"ksapi", "constants", "constants3d"}
         for path in (root / "examples").glob("*.py"):
             with self.subTest(path=path.name):
@@ -424,7 +440,7 @@ class SkillIntegrityTests(unittest.TestCase):
                     self.assertFalse(set(modules) - allowed, modules)
 
     def test_skill_docs_have_local_links_and_no_project_dependencies(self):
-        root = Path(__file__).resolve().parents[1]
+        root = SKILL_DIR
         for path in (root / "SKILL.md", *(root / "references").glob("*.md")):
             text = path.read_text()
             with self.subTest(path=path.name):
@@ -435,14 +451,17 @@ class SkillIntegrityTests(unittest.TestCase):
                         self.assertTrue((path.parent / target.split("#")[0]).is_file(), target)
 
     def test_copied_examples_and_tests_work_without_original_project(self):
-        root = Path(__file__).resolve().parents[1]
+        root = SKILL_DIR
         with tempfile.TemporaryDirectory() as directory:
-            copied = Path(directory) / "standalone skill"
-            shutil.copytree(root / "examples", copied / "examples", ignore=shutil.ignore_patterns("__pycache__"))
-            (copied / "scripts").mkdir()
-            shutil.copyfile(Path(__file__), copied / "scripts" / "test_recipes.py")
+            copied = Path(directory) / "standalone repository"
+            skill = copied / "skills" / root.name
+            shutil.copytree(root / "examples", skill / "examples", ignore=shutil.ignore_patterns("__pycache__"))
+            tests = copied / "tests"
+            tests.mkdir()
+            shutil.copyfile(Path(__file__), tests / "test_recipes.py")
+            shutil.copyfile(Path(__file__).with_name("skill_paths.py"), tests / "skill_paths.py")
             result = subprocess.run(
-                [sys.executable, "-m", "unittest", "discover", "-s", str(copied / "scripts"),
+                [sys.executable, "-m", "unittest", "discover", "-s", str(tests),
                  "-p", "test_recipes.py", "-k", "RecipeTests", "-k", "IncrementalTests"],
                 cwd=directory, capture_output=True, text=True, timeout=10,
             )

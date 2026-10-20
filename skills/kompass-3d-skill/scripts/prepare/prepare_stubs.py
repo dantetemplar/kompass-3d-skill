@@ -16,7 +16,7 @@ from native import NativeModel
 from artifacts import atomic_write, file_identity, unknown_annotations, validate_documentation
 from environment import validate_environment, validate_output
 
-REPO = Path(__file__).resolve().parent.parent
+SKILL_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_INSTALL = Path("/opt/ascon/kompas3d-v25")
 
 
@@ -76,8 +76,8 @@ def generate(install: Path, docs_path: Path, output: Path, metadata: Path | None
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--install", "--kompas-root", type=Path, default=DEFAULT_INSTALL)
-    parser.add_argument("--docs", type=Path, default=REPO / ".cache/kompas-sdk-docs/llm/pages.jsonl")
-    parser.add_argument("--output", "--output-dir", type=Path, default=REPO / ".cache/kompas-stubs")
+    parser.add_argument("--docs", type=Path, default=SKILL_DIR / ".cache/kompas-sdk-docs/llm/pages.jsonl")
+    parser.add_argument("--output", "--output-dir", type=Path, default=SKILL_DIR / ".cache/kompas-stubs")
     parser.add_argument("--metadata", type=Path)
     args = parser.parse_args()
     try:

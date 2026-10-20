@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 import unittest
 
+import skill_paths
+
 from artifacts import atomic_write, file_identity, unknown_annotations, validate_documentation
 
 

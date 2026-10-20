@@ -9,7 +9,9 @@ from unittest.mock import Mock
 
 from test_recipes import load_recipe
 
-ROOT = Path(__file__).resolve().parents[1]
+from skill_paths import SKILL_DIR
+
+ROOT = SKILL_DIR
 EXAMPLES = ROOT / "examples"
 NAMES = ["01_plate", "02_ring", "03_holes", "04_revolve", "05_offset_plane",
          "06_loft", "07_body_pattern", "08_boolean", "09_reposition", "10_assembly",

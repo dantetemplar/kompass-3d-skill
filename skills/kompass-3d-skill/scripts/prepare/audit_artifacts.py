@@ -14,7 +14,7 @@ import re
 from collections import Counter
 from urllib.parse import unquote
 
-REPO = Path(__file__).resolve().parents[1]
+SKILL_DIR = Path(__file__).resolve().parents[2]
 
 
 def audit(docs: Path, stubs: Path) -> dict:
@@ -126,8 +126,8 @@ def audit(docs: Path, stubs: Path) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--docs", type=Path, default=REPO / ".cache/kompas-sdk-docs")
-    parser.add_argument("--stubs", type=Path, default=REPO / ".cache/kompas-stubs")
+    parser.add_argument("--docs", type=Path, default=SKILL_DIR / ".cache/kompas-sdk-docs")
+    parser.add_argument("--stubs", type=Path, default=SKILL_DIR / ".cache/kompas-stubs")
     args = parser.parse_args()
     report = audit(args.docs, args.stubs)
     destination = args.stubs / "artifact-audit.json"

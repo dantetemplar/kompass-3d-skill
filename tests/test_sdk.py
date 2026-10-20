@@ -12,6 +12,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+import skill_paths
 import sdk
 
 
@@ -277,19 +278,23 @@ class SdkTests(unittest.TestCase):
             cwd=self.root, env=env, capture_output=True, text=True, check=True, timeout=5,
         )
         self.assertEqual(json.loads(result.stdout)["id"], "api7_add")
-        tests = subprocess.run(
-            [sys.executable, "-m", "unittest", "discover", "-s", str(copied / "scripts"),
-             "-p", "test_sdk.py", "-k", "launcher"],
-            cwd=self.root, env=env, capture_output=True, text=True, timeout=10,
-        )
-        self.assertEqual(tests.returncode, 0, tests.stderr)
+        self.assertFalse(list(copied.rglob("test_*.py")))
+        for name in ("prepare_docs", "prepare_stubs", "check_stubs", "audit_artifacts"):
+            with self.subTest(command=name):
+                prepared = subprocess.run(
+                    [sys.executable, str(copied / "scripts" / "prepare" / f"{name}.py"), "--help"],
+                    cwd=self.root, env=env, capture_output=True, text=True, timeout=10,
+                )
+                self.assertEqual(prepared.returncode, 0, prepared.stderr)
+                self.assertNotIn(str(sdk.SKILL_DIR), prepared.stdout)
+                self.assertFalse((self.root / ".cache").exists())
 
     def test_missing_index_does_not_create_database_or_download(self):
         destination = self.root / "missing-index.sqlite3"
         with redirect_stderr(io.StringIO()) as error:
             code = sdk.main(["--docs", str(destination), "search", "эскиз"])
         self.assertEqual(code, 1)
-        self.assertIn("prepare/prepare_docs.py", error.getvalue())
+        self.assertIn("scripts/prepare/prepare_docs.py", error.getvalue())
         self.assertFalse(destination.exists())
 
     def test_native_symbol_lookup_navigation_and_safe_fts(self):

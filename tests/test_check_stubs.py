@@ -1,6 +1,8 @@
 """Offline mutation fixtures for the independent verifier (no generator imports)."""
 from __future__ import annotations
 
+import skill_paths
+
 import ast
 import hashlib
 import json

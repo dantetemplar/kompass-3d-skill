@@ -4,6 +4,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
+import skill_paths
+
 from audit_artifacts import audit
 
 

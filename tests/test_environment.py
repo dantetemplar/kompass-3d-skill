@@ -5,10 +5,22 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+import skill_paths
+
 from environment import validate_environment, validate_output
+import audit_artifacts
+import check_stubs
+import prepare_docs
+import prepare_stubs
 
 
 class EnvironmentTests(unittest.TestCase):
+    def test_default_caches_belong_to_the_installable_skill(self):
+        self.assertEqual(prepare_docs.DEFAULT_OUT, skill_paths.SKILL_DIR / ".cache/kompas-sdk-docs")
+        for module in (prepare_stubs, check_stubs, audit_artifacts):
+            with self.subTest(module=module.__name__):
+                self.assertEqual(module.SKILL_DIR, skill_paths.SKILL_DIR)
+
     def test_matching_installation_environment(self):
         install = Path("/chosen/kompas")
         with patch.dict(os.environ, {"PYTHONPATH": "/chosen/kompas/Bin:/other", "LD_LIBRARY_PATH": "/other:/chosen/kompas/Bin"}):
