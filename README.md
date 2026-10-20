@@ -2,7 +2,7 @@
 
 Скилл для AI-агента: создание и изменение деталей, сборок и чертежей КОМПАС-3D через нативный Python KsAPI. Примеры адаптированы для КОМПАС-3D v25 в Linux; Windows COM и `pywin32` не используются.
 
-Нужны установленный КОМПАС с действительной лицензией, Python 3.11+, `uv` и Bash. Подготовка справки дополнительно требует установленный SDK.
+Нужны установленный КОМПАС с действительной лицензией, `uv` и Bash. Python 3.11+ может установить `uv`. Подготовка справки дополнительно требует установленный SDK.
 
 ## Подключение скилла
 
@@ -18,7 +18,7 @@ npx skills add dantetemplar/kompass-3d-skill --skill kompass-3d-skill -g -a curs
 
 ## Подготовка SDK
 
-Справка и стабы генерируются офлайн из установленного SDK, не импортируют `ksapi` и не запускают КОМПАС. Выполните из каталога установленного скилла:
+Справка и стабы генерируются офлайн из файлов установленного КОМПАС и SDK. Генератор стабов анализирует исходный `ksapi.py`, не выполняя его и не запуская КОМПАС. Для офлайн-режима нужен заранее доступный Python 3.11+ — системный или установленный через `uv python install`. Выполните из каталога установленного скилла:
 
 ```bash
 cd ~/.cursor/skills/kompass-3d-skill
@@ -30,13 +30,13 @@ uv run --script scripts/prepare/prepare_docs.py
 uv run --script scripts/prepare/prepare_stubs.py
 ```
 
-Нужны подходящий локальный Python и установленный SDK; команды ничего не скачивают. `--help` описывает выбор установки и выходных каталогов. Справка сохраняется в `.cache/kompas-sdk-docs`, стабы — в `.cache/kompas-stubs` внутри скилла; кэши не включены в Git. При переносе подготовленного скилла копируйте `.cache` либо подготовьте SDK повторно. Для другого индекса используйте `KOMPAS_SDK_DOCS` или `scripts/sdk.py --docs /path/to/docs`.
+Команды подготовки ничего не скачивают. `--help` описывает выбор установки и выходных каталогов. Справка сохраняется в `.cache/kompas-sdk-docs`, стабы — в `.cache/kompas-stubs` внутри скилла; кэши не включены в Git. При переносе подготовленного скилла копируйте `.cache` либо подготовьте SDK повторно. Для другого индекса используйте `KOMPAS_SDK_DOCS` или `scripts/sdk.py --docs /path/to/docs`.
 
 ```bash
 cd ~/.cursor/skills/kompass-3d-skill
-python3 scripts/sdk.py search 'IExtrusions Add'
-python3 scripts/sdk.py page IExtrusions.Add ISketch.BeginEdit
-python3 scripts/sdk.py inspect IExtrusion.SetSideParameters --source
+uv run --script scripts/sdk.py search 'IExtrusions Add'
+uv run --script scripts/sdk.py page IExtrusions.Add ISketch.BeginEdit
+uv run --script scripts/sdk.py inspect IExtrusion.SetSideParameters --source
 ```
 
 По умолчанию используется нативный KsAPI; Windows API7/API5 доступны только при явном `--section`. Подробности — в [references/ksapi.md](skills/kompass-3d-skill/references/ksapi.md).
@@ -77,7 +77,7 @@ cd ~/.cursor/skills/kompass-3d-skill
 
 ```bash
 cd /absolute/path/to/kompass-3d-skill
-python3 -m unittest discover -s tests
+uv run --no-project --python '>=3.11' python -m unittest discover -s tests
 ```
 
 Проверка подготовленных стабов и аудит артефактов выполняются из установленного скилла; для проверки стабов нужен локальный `mypy`:

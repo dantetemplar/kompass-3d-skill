@@ -4,7 +4,7 @@
 
 ## Подготовка базы документации
 
-Из каталога установленного скилла, с установленным SDK и локальным Python 3.11+; исходный репозиторий не требуется. Для другой установки замените путь в `cd`:
+Из каталога установленного скилла, с установленным SDK и заранее доступным Python 3.11+ (системным или установленным через `uv python install`); исходный репозиторий не требуется. Загрузка интерпретатора может требовать сеть и выполняется до включения офлайн-режима. Для другой установки замените путь в `cd`:
 
 ```bash
 cd ~/.cursor/skills/kompass-3d-skill
@@ -28,12 +28,12 @@ uv run --script scripts/prepare/prepare_stubs.py
 
 ```bash
 SDK=scripts/sdk.py
-python3 "$SDK" inspect IKompasDocument3D.GetTopPart IPart.GetModelContainer \
+uv run --script "$SDK" inspect IKompasDocument3D.GetTopPart IPart.GetModelContainer \
   ISketch.BeginEdit IExtrusion.SetProfiles --source
-python3 "$SDK" inspect IExtrusion --match 'side'
-python3 "$SDK" page ISketch.BeginEdit ISketch.EndEdit IExtrusions.Add
-python3 "$SDK" toc ISketch
-python3 "$SDK" links ISketch.BeginEdit
+uv run --script "$SDK" inspect IExtrusion --match 'side'
+uv run --script "$SDK" page ISketch.BeginEdit ISketch.EndEdit IExtrusions.Add
+uv run --script "$SDK" toc ISketch
+uv run --script "$SDK" links ISketch.BeginEdit
 ```
 
 Поля вывода:

@@ -1,12 +1,12 @@
 ---
 name: kompass-3d-skill
 description: Создаёт и изменяет 3D-модели, сборки и 2D-чертежи КОМПАС-3D через нативный Python KsAPI. Используется при написании, исправлении и запуске макросов КОМПАС. Помогает выбрать дерево построения и выполнить задачу, используя примеры и SDK по необходимости.
-compatibility: Linux, КОМПАС-3D v25 с нативным KsAPI и действительной лицензией; Python 3.11+, uv, Bash; установленный SDK для офлайн-подготовки справки и стабов.
+compatibility: Linux, КОМПАС-3D v25 с нативным KsAPI и действительной лицензией; uv, Bash (Python 3.11+ через uv или системный); установленный SDK для офлайн-подготовки справки и стабов.
 ---
 
 # КОМПАС-3D: нативный KsAPI
 
-Использовать нативный Python KsAPI установленного КОМПАС-3D, без COM и `pywin32`. Примеры адаптированы под v25 в Linux. Скилл автономен: нужны Python 3.11+, `uv`, Bash и КОМПАС, исходный репозиторий не требуется. Пути `scripts/`, `references/`, `examples/` и `.cache/` указаны относительно каталога установленного скилла. Справка готовится офлайн из установленного SDK; при переносе скилла переносить и подготовленный кэш. Новые пакеты макросов могут требовать сеть, подготовка SDK — нет.
+Использовать нативный Python KsAPI установленного КОМПАС-3D, без COM и `pywin32`. Примеры адаптированы под v25 в Linux. Скилл автономен: нужны `uv`, Bash и КОМПАС, исходный репозиторий не требуется. Python 3.11+ может установить `uv`; для офлайн-подготовки он должен быть доступен заранее. Пути `scripts/`, `references/`, `examples/` и `.cache/` указаны относительно каталога установленного скилла. Справка готовится офлайн из установленного SDK; при переносе скилла переносить и подготовленный кэш. Загрузка Python и новых пакетов макросов может требовать сеть; подготовка SDK с заранее доступным интерпретатором — нет.
 
 ## Рабочий подход
 
@@ -161,17 +161,17 @@ uv run --script /absolute/path/to/main.py аргументы
 
 ```bash
 # Один пакет нужных методов, один разбор обёртки.
-python3 scripts/sdk.py inspect ISketch.BeginEdit IExtrusion.SetSideParameters --source
+uv run --script scripts/sdk.py inspect ISketch.BeginEdit IExtrusion.SetSideParameters --source
 # Сначала найти имя; затем отфильтровать нужные методы интерфейса.
-python3 scripts/sdk.py local 'Bezier' --limit 15
-python3 scripts/sdk.py inspect IExtrusion --match 'side'
-python3 scripts/sdk.py constants 'плоскость XOY'
-python3 scripts/sdk.py search 'IExtrusions Add' --limit 3
-python3 scripts/sdk.py page IExtrusions.Add ISketch.BeginEdit
-python3 scripts/sdk.py toc ISketch
-python3 scripts/sdk.py links ISketch.BeginEdit
+uv run --script scripts/sdk.py local 'Bezier' --limit 15
+uv run --script scripts/sdk.py inspect IExtrusion --match 'side'
+uv run --script scripts/sdk.py constants 'плоскость XOY'
+uv run --script scripts/sdk.py search 'IExtrusions Add' --limit 3
+uv run --script scripts/sdk.py page IExtrusions.Add ISketch.BeginEdit
+uv run --script scripts/sdk.py toc ISketch
+uv run --script scripts/sdk.py links ISketch.BeginEdit
 # verify проверяет только наличие символов, не корректность макроса.
-python3 scripts/sdk.py verify --brief ISketch.BeginEdit IExtrusion.SetSideParameters
+uv run --script scripts/sdk.py verify --brief ISketch.BeginEdit IExtrusion.SetSideParameters
 ```
 
 - Пакетировать `inspect` и `page`, не запускать shell-цикл по одному методу. `--source` применять к конкретным методам, не ко всему большому интерфейсу. Ошибочное имя не скрывает остальные результаты, но даёт код `1`; исправлять только его. Независимые запросы не связывать через `&&`.
