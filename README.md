@@ -101,6 +101,8 @@ bash skills/kompass-3d-skill/scripts/run.sh tools/run_examples.py --only 02_ring
 
 Стенд строит примеры, проверяет геометрию, сохраняет и повторно открывает временные модели, получает JPEG через КОМПАС. В новом каталоге остаются изображения и `verification.json`; временные модели удаляются, чужие документы не меняются. Зависимость `pillow` устанавливается через `uv` из PEP 723 скрипта; первая установка может требовать сеть.
 
+Источник учебных заданий, чертежей, превью и исходных компонентов — [официальный каталог SOLIDWORKS Practice Problems](https://www.solidworks.com/solution/education/practice-problems). Материалы принадлежат Dassault Systèmes; условия использования приведены в оригиналах.
+
 ## Состав
 
 - `skills/kompass-3d-skill/` — автономный переносимый скилл: `SKILL.md`, `references/`, `examples/`, `scripts/`.
