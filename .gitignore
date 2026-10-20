@@ -1,0 +1,8 @@
+.cache/
+__pycache__/
+*.py[cod]
+PracticeProblems_ALL250_CSWA/
+*.rpm
+*.tar.gz
+*~
+.DS_Store
