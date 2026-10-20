@@ -611,5 +611,146 @@ class IncrementalTests(unittest.TestCase):
         scratch.Close.assert_called_once()
 
 
+class GeometricSelectionTests(unittest.TestCase):
+    def setUp(self):
+        self.recipe = load_recipe("geometric_selection")
+        self.recipe.ksapi.IEdge = lambda obj: obj
+        self.recipe.c3d.o3d_edge = 7
+        self.recipe.c3d.o3d_axisOZ = 73
+        self.body = Mock(reference=10)
+        self.part = Mock()
+        self.part.GetResultBodies.return_value = [self.body]
+        self.options = {"length_tol": 1e-5, "angle_tol": 1e-7}
+
+    def geometry(self, origin, axis, radius=5):
+        obj = Mock()
+        placement = obj.GetPlacement.return_value
+        placement.GetOrigin.return_value = (True, *origin)
+        placement.GetVector.return_value = (True, *axis)
+        obj.GetCentre.return_value = (True, *origin)
+        obj.GetRadius.return_value = radius
+        return obj
+
+    def face(self, origin=(0, 0, 10), axis=(0, 0, 1), *, planar=True, radius=5):
+        face = Mock()
+        face.GetBody.return_value = self.body
+        face.IsPlanar.return_value = planar
+        face.IsCylinder.return_value = not planar
+        face.GetMathSurface.return_value = self.geometry(origin, axis, radius)
+        face.GetRadius.return_value = radius
+        return face
+
+    def edge(self, center=(0, 0, 10), axis=(0, 0, 1), *, radius=5):
+        edge = Mock()
+        edge.GetBody.return_value = self.body
+        edge.IsCircle.return_value = True
+        edge.GetMathCurve.return_value = self.geometry(center, axis, radius)
+        return edge
+
+    def test_plane_uses_distance_normal_and_body_not_index(self):
+        wanted = self.face(axis=(0, 0, -2))
+        wrong_normal = self.face(axis=(1, 0, 0))
+        foreign = self.face()
+        foreign.GetBody.return_value = Mock(reference=20)
+        self.part.GetModelObjects.return_value = [wrong_normal, foreign, self.face(origin=(0, 0, 0)), wanted]
+        self.assertIs(self.recipe.select_plane(self.part, self.body, point=(5, 7, 10),
+                                               normal=(0, 0, 3), **self.options), wanted)
+
+    def test_ambiguous_and_missing_report_measured_candidates(self):
+        self.part.GetModelObjects.return_value = [self.face(), self.face()]
+        with self.assertRaisesRegex(ValueError, '"matches": 2') as error:
+            self.recipe.select_plane(self.part, self.body, point=(0, 0, 10), normal=(0, 0, 1), **self.options)
+        self.assertIn('"plane_distance"', str(error.exception))
+        with self.assertRaisesRegex(ValueError, '"matches": 0'):
+            self.recipe.select_plane(self.part, self.body, point=(0, 0, 15), normal=(0, 0, 1), **self.options)
+
+    def test_circle_filters_center_radius_plane_and_rejects_arcs(self):
+        wanted = self.edge(axis=(0, 0, -1))
+        arc = self.edge()
+        arc.IsCircle.return_value = False
+        self.part.GetModelObjects.return_value = [arc, self.edge(radius=15), self.edge(center=(1, 0, 10)),
+                                                  self.edge(axis=(1, 0, 0)), wanted]
+        self.assertIs(self.recipe.select_circle(self.part, self.body, center=(0, 0, 10), radius=5,
+                                                normal=(0, 0, 1), **self.options), wanted)
+        arc.GetMathCurve.assert_not_called()
+
+    def test_cylinder_axis_line_span_sign_and_radius(self):
+        wanted = self.face(origin=(0, 0, 100), planar=False)
+        wanted.GetLimitingEdges.return_value = [self.edge(center=(0, 0, 0)), self.edge()]
+        self.part.GetModelObjects.return_value = [self.face(planar=False, radius=15),
+                                                  self.face(origin=(2, 0, 0), planar=False), wanted]
+        self.assertIs(self.recipe.select_cylinder(self.part, self.body, radius=5, axis_point=(0, 0, 20),
+                                                  axis=(0, 0, -1), span=(10, 20), **self.options), wanted)
+        with self.assertRaisesRegex(ValueError, '"matches": 0'):
+            self.recipe.select_cylinder(self.part, self.body, radius=5, axis_point=(0, 0, 0),
+                                         axis=(0, 0, 1), span=(0, 9), **self.options)
+
+    def test_cylinder_rejects_unsupported_trim_instead_of_guessing_bbox(self):
+        face = self.face(planar=False)
+        arc = self.edge()
+        arc.IsCircle.return_value = False
+        arc.IsStraight.return_value = False
+        face.GetLimitingEdges.return_value = [arc]
+        self.part.GetModelObjects.return_value = [face]
+        with self.assertRaisesRegex(ValueError, "Неподдерживаемая обрезка"):
+            self.recipe.select_cylinder(self.part, self.body, radius=5, axis_point=(0, 0, 0),
+                                         axis=(0, 0, 1), span=(0, 10), **self.options)
+
+    def test_tilted_cylinder_and_straight_seam_project_to_requested_axis(self):
+        s = self.recipe.math.sqrt(0.5)
+        axis, origin = (s, 0, s), (10, 20, 30)
+        end = tuple(p + 10 * n for p, n in zip(origin, axis))
+        face = self.face(origin=origin, axis=axis, planar=False)
+        seam = Mock()
+        seam.IsCircle.return_value = False
+        seam.IsStraight.return_value = True
+        seam.GetPoint.side_effect = [(True, origin[0], origin[1] + 5, origin[2]),
+                                     (True, end[0], end[1] + 5, end[2])]
+        face.GetLimitingEdges.return_value = [self.edge(center=origin, axis=axis),
+                                               self.edge(center=end, axis=axis), seam]
+        self.part.GetModelObjects.return_value = [face]
+        self.assertIs(self.recipe.select_cylinder(self.part, self.body, radius=5, axis_point=origin,
+                                                  axis=axis, span=(0, 10), **self.options), face)
+
+    def test_circle_and_cylinder_do_not_choose_first_identical_candidate(self):
+        self.part.GetModelObjects.return_value = [self.edge(), self.edge()]
+        with self.assertRaisesRegex(ValueError, '\"matches\": 2'):
+            self.recipe.select_circle(self.part, self.body, center=(0, 0, 10), radius=5,
+                                       normal=(0, 0, 1), **self.options)
+        faces = [self.face(planar=False), self.face(planar=False)]
+        for face in faces:
+            face.GetLimitingEdges.return_value = [self.edge(center=(0, 0, 0)), self.edge()]
+        self.part.GetModelObjects.return_value = faces
+        with self.assertRaisesRegex(ValueError, '\"matches\": 2'):
+            self.recipe.select_cylinder(self.part, self.body, radius=5, axis_point=(0, 0, 0),
+                                         axis=(0, 0, 1), span=(0, 10), **self.options)
+
+    def test_bad_status_nonfinite_zero_vector_and_tolerance_rejected(self):
+        for result in ((False, 0, 0, 0), (True, float("nan"), 0, 0)):
+            with self.assertRaises((RuntimeError, ValueError)):
+                self.recipe.output_point(result, "readback")
+        for vector in ((0, 0, 0), (float("inf"), 0, 0)):
+            with self.assertRaises(ValueError):
+                self.recipe.unit(vector)
+        for length, angle in ((0, 1e-7), (-1, 1e-7), (1e-5, 0), (1e-5, float("nan"))):
+            with self.assertRaises(ValueError):
+                self.recipe.tolerances(length, angle)
+        self.part.GetResultBodies.return_value = [Mock(reference=20)]
+        with self.assertRaisesRegex(RuntimeError, "Тело не в текущем результате"):
+            self.recipe.select_plane(self.part, self.body, point=(0, 0, 10), normal=(0, 0, 1), **self.options)
+
+    def test_failure_closes_only_owned_document_and_restores_previous(self):
+        app = Mock()
+        with patch.object(self.recipe.ksapi, "GetKompas", return_value=app), \
+                patch.object(self.recipe, "build", side_effect=ValueError("probe")):
+            with self.assertRaisesRegex(ValueError, "probe"):
+                self.recipe.main()
+        app.GetDocuments.return_value.AddWithDefaultSettings.return_value.Close.assert_called_once_with(
+            self.recipe.c.kdDoNotSaveChanges)
+        previous = app.GetActiveDocument.return_value
+        previous.SetActive.assert_called_once()
+        previous.Close.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
