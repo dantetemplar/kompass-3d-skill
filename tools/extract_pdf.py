@@ -185,8 +185,11 @@ def markdown(pdf: Path, text: str) -> str:
         if line.strip() not in {"- The part is symmetric.", "- The part is asymmetric."}
     ]
     body = "  \n".join(lines)
+    preview_path = pdf.with_name(f"{pdf.stem.removesuffix('_ENG')}_preview.jpg")
+    preview = f"![ПРЕВЬЮ]({quote(preview_path.name)})\n\n" if preview_path.is_file() else ""
     return (
         f"# {title}\n\n"
+        f"{preview}"
         f"![Чертёж]({quote(pdf.with_suffix('.jpg').name)})\n\n"
         f"{dependencies(pdf, text)}"
         f"## Текст задания\n\n{body}\n"

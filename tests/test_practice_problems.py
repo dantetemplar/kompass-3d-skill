@@ -21,6 +21,7 @@ class PracticeProblemTests(unittest.TestCase):
         namespace = {"Path": Path, "re": re, "quote": quote, "ZipFile": ZipFile, "relpath": relpath}
         exec(compile(ast.Module(body=functions, type_ignores=[]), "extract-markdown", "exec"), namespace)
         cls.dependencies = staticmethod(namespace["dependencies"])
+        cls.markdown = staticmethod(namespace["markdown"])
 
     def test_all_tasks_have_drawings_and_valid_local_links(self):
         documents = sorted(CORPUS.glob("Level*/*.md"))
@@ -30,6 +31,9 @@ class PracticeProblemTests(unittest.TestCase):
                 text = document.read_text()
                 self.assertIn("## Текст задания", text)
                 self.assertIn(f"![Чертёж]({document.with_suffix('.jpg').name})", text)
+                preview = f"![ПРЕВЬЮ]({document.stem.removesuffix('_ENG')}_preview.jpg)"
+                self.assertEqual(text.count(preview), 1)
+                self.assertLess(text.index(preview), text.index("![Чертёж]"))
                 self.assertNotIn("[Исходный PDF]", text)
                 for url in re.findall(r'\]\(([^)]+)\)', text):
                     self.assertTrue((document.parent / unquote(url)).is_file(), url)
@@ -74,6 +78,10 @@ class PracticeProblemTests(unittest.TestCase):
         for document in sorted(CORPUS.glob("Level*/*.md")):
             text = document.read_text()
             original = text.split("## Текст задания\n\n", 1)[1]
+            regenerated = self.markdown(document.with_suffix(".pdf"), original)
+            preview = f"![ПРЕВЬЮ]({document.stem.removesuffix('_ENG')}_preview.jpg)"
+            self.assertIn(preview, regenerated, document)
+            self.assertLess(regenerated.index(preview), regenerated.index("![Чертёж]"))
             section = self.dependencies(document.with_suffix(".pdf"), original)
             if section:
                 self.assertIn(section, text, document)
