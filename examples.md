@@ -21,25 +21,17 @@ bash scripts/run.sh examples/10_assembly.py --output-dir ~/kompas-models/two_blo
 
 В самостоятельных примерах `build` отвечает за построение, `validate` — за регрессионные проверки, `main` — за подключение, сохранение и закрытие. Некоторые дополнительные проверки находятся внутри `build`; при адаптации переносите только нужные вызовы.
 
-### Настраиваемая пластина и кольцо
+### Пластина, кольцо, отверстия
 
-[basic_part.py](skills/kompass-3d-skill/examples/basic_part.py) позволяет выбрать форму, размеры и отверстия:
+Самостоятельные примеры галереи:
 
 ```bash
-# Пластина 60 × 40 × 10 мм.
-bash scripts/run.sh examples/basic_part.py plate --output ~/kompas-models/plate.m3d
-
-# Кольцо: наружный диаметр 50 мм, отверстие 10 мм, толщина 10 мм.
-bash scripts/run.sh examples/basic_part.py ring --output ~/kompas-models/ring.m3d
-
-# Четыре сквозных отверстия Ø4 на окружности R15.
-bash scripts/run.sh examples/basic_part.py plate --holes 4 --output ~/kompas-models/holes.m3d
-
-# Те же отверстия, но глухие, глубиной 3 мм.
-bash scripts/run.sh examples/basic_part.py plate --holes 4 --cut-depth 3 --output ~/kompas-models/blind.m3d
+bash scripts/run.sh examples/01_plate.py --output ~/kompas-models/plate.m3d
+bash scripts/run.sh examples/02_ring.py --output ~/kompas-models/ring.m3d
+bash scripts/run.sh examples/03_holes.py --output ~/kompas-models/holes.m3d
 ```
 
-Все четыре команды выполнены в КОМПАС 20.10.2026. Отдельный [incremental_edit.py](skills/kompass-3d-skill/examples/incremental_edit.py) демонстрирует правку глубины и Undo/Redo с проверкой геометрии ([§29 рецептов](skills/kompass-3d-skill/SKILL.md#29-сгруппировать-правки-и-выполнить-undoredo)).
+[incremental_edit.py](skills/kompass-3d-skill/examples/incremental_edit.py) — правка глубины и Undo/Redo ([Undo](skills/kompass-3d-skill/SKILL.md#undo)).
 
 ## Проверка размерного управления эскизом
 
@@ -96,7 +88,7 @@ bash scripts/run.sh examples/16_dimension_driven_sketch.py
 
 После перестроения заново получайте используемые тела/грани. Итоговые тела доступны через `ksapi.IFeature(part).GetResultBodies()`; список тел самой операции может быть пуст.
 
-`verify_cylindrical_walls(part, expected)` из [basic_part.py](skills/kompass-3d-skill/examples/basic_part.py) проверяет простые цилиндрические стенки вдоль Z, без скруглений и разбиений. Формат записи: `(x, y, radius, zmin, zmax)`. Для кольца учитываются наружная стенка и центральное отверстие, для отверстий — каждая стенка.
+`verify_cylindrical_walls(part, expected)` из [03_holes.py](skills/kompass-3d-skill/examples/03_holes.py) / [02_ring.py](skills/kompass-3d-skill/examples/02_ring.py) проверяет простые цилиндрические стенки вдоль Z, без скруглений и разбиений. Формат записи: `(x, y, radius, zmin, zmax)`. Для кольца учитываются наружная стенка и центральное отверстие, для отверстий — каждая стенка.
 
 При проверке сохранения/переносимости повторяйте измерения после открытия **собственной копии**, не закрывая dirty-документ пользователя. `SaveAs` не упаковывает внешние зависимости.
 

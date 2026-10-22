@@ -21,9 +21,17 @@ NAMES = ["01_plate", "02_ring", "03_holes", "04_revolve", "05_offset_plane",
 
 class GalleryTests(unittest.TestCase):
     def test_example_function_signatures_are_annotated(self):
+        def is_stub_excerpt(node):
+            """Stub/doc excerpts end with bare `...`; skip annotation rules for them."""
+            stmts = [n for n in node.body if not (
+                isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant)
+                and isinstance(n.value.value, str))]
+            return len(stmts) == 1 and isinstance(stmts[0], ast.Expr) and isinstance(
+                stmts[0].value, ast.Constant) and stmts[0].value.value is ...
+
         def check(node, path):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if node.name == "validate":
+                if node.name == "validate" or is_stub_excerpt(node):
                     return
                 with self.subTest(path=path, function=node.name, line=node.lineno):
                     self.assertIsNotNone(node.returns, "Missing return annotation")
@@ -55,7 +63,7 @@ class GalleryTests(unittest.TestCase):
                                      for n in calls))
                 for node in ast.walk(tree):
                     if isinstance(node, ast.ImportFrom):
-                        self.assertNotIn(node.module, ("basic_part", "incremental_edit"))
+                        self.assertNotIn(node.module, ("incremental_edit",))
                         self.assertEqual(node.level, 0)
                 self.assertIn("finally:", source)
                 self.assertIn("kdDoNotSaveChanges", source)

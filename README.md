@@ -39,7 +39,7 @@ uv run --script scripts/sdk.py page IExtrusions.Add ISketch.BeginEdit
 uv run --script scripts/sdk.py inspect IExtrusion.SetSideParameters --source
 ```
 
-По умолчанию используется нативный KsAPI; Windows API7/API5 доступны только при явном `--section`. Подробности — в [справочнике KsAPI](skills/kompass-3d-skill/SKILL.md#нативный-ksapi-справочник-рабочего-процесса).
+По умолчанию используется нативный KsAPI; Windows API7/API5 доступны только при явном `--section`. Подробности — в [справочнике KsAPI](skills/kompass-3d-skill/SKILL.md#справочник-рабочего-процесса-с-нативным-ksapi).
 
 ## Запуск макросов
 
@@ -107,8 +107,8 @@ bash skills/kompass-3d-skill/scripts/run.sh tools/run_examples.py --only 02_ring
 
 Справочные ссылки ниже не являются списком обязательного чтения.
 
-- [Рецепты](skills/kompass-3d-skill/SKILL.md#рецепты-для-компас-3d-на-python) и [основа макроса](skills/kompass-3d-skill/examples/basic_part.py) — готовые реализации для адаптации и уточнения деталей.
-- [Нативный KsAPI: цепочки, маршалинг и кривые](skills/kompass-3d-skill/SKILL.md#нативный-ksapi-справочник-рабочего-процесса) — подробности при диагностике.
+- [Рецепты](skills/kompass-3d-skill/SKILL.md#рецепты-для-компас-3d-на-python) и [01_plate.py](skills/kompass-3d-skill/examples/01_plate.py) — готовые реализации для адаптации и уточнения деталей.
+- [Справочник рабочего процесса с нативным KsAPI](skills/kompass-3d-skill/SKILL.md#справочник-рабочего-процесса-с-нативным-ksapi) — подробности при диагностике.
 - [Официальный SDK](https://help.ascon.ru/KOMPAS_SDK/25/ru-RU/) — назначение и ограничения операций.
 - Локальные `ksapi.py`, `constants.py`, `constants3d.py` — фактические имена, сигнатуры и маршалинг; импорт ради этих данных не нужен.
 
