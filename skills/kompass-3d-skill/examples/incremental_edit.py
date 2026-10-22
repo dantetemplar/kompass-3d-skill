@@ -9,23 +9,30 @@ No user document/file is modified. No export, ClearUndo or disabled history.
 The same feature is edited, not regenerated. This does NOT qualify assembly Undo.
 Run: bash scripts/run.sh examples/incremental_edit.py
 """
+from __future__ import annotations
+
+from collections.abc import Iterator
 from contextlib import contextmanager
 import math
 from time import perf_counter
+from typing import TypeVar
 
 import ksapi
 from constants import constants as c
 from constants3d import constants as c3d
 
 
-def require(value, message):
+T = TypeVar("T")
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
 @contextmanager
-def undo_group(doc3d):
+def undo_group(doc3d: ksapi.IKompasDocument3D) -> Iterator[None]:
     """Group only; closing on exception is NOT rollback. Reject nested groups."""
     require(doc3d.IsEnableUndo(), "Undo отключён; не менять пользовательскую настройку")
     require(not doc3d.IsUndoContainer(), "Уже открыта чужая группа Undo")
@@ -38,7 +45,7 @@ def undo_group(doc3d):
         require(not doc3d.IsUndoContainer(), "Группа Undo не закрылась")
 
 
-def history_command(app, doc, command):
+def history_command(app: ksapi.IApplication, doc: ksapi.IKompasDocument, command: int) -> None:
     """Caller must know which completed edit is at history top; no blind retry."""
     require(command in (c.ksCMEditUndo, c.ksCMEditRedo), "Только Undo/Redo")
     require(not ksapi.IKompasDocument3D(doc).IsUndoContainer(), "Сначала закрыть группу")
@@ -51,7 +58,7 @@ def history_command(app, doc, command):
     require(frame.ExecuteKompasCommand(command, False), "Ошибка Undo/Redo; не повторять вслепую")
 
 
-def make_extrusion(doc):
+def make_extrusion(doc: ksapi.IKompasDocument) -> None:
     """Only for the newly registered scratch document; all dimensions in mm."""
     part = require(ksapi.IKompasDocument3D(doc).GetTopPart(), "Верхний компонент")
     model = require(part.GetModelContainer(), "Контейнер")
@@ -78,7 +85,7 @@ def make_extrusion(doc):
     require(part.RebuildModel(True), "Перестроение")
 
 
-def current_extrusion(doc):
+def current_extrusion(doc: ksapi.IKompasDocument) -> ksapi.IExtrusion:
     """Re-resolve after rebuild/Undo. Index 0 valid ONLY for this one-feature fixture."""
     part = require(ksapi.IKompasDocument3D(doc).GetTopPart(), "Свежий компонент")
     extrusions = part.GetModelContainer().GetExtrusions()
@@ -86,7 +93,7 @@ def current_extrusion(doc):
     return require(extrusions.GetExtrusion(0), "Свежая операция")
 
 
-def change_depth(doc, depth):
+def change_depth(doc: ksapi.IKompasDocument, depth: float) -> None:
     require(math.isfinite(depth) and depth > 0, "Нужна положительная конечная глубина")
     op = current_extrusion(doc)
     require(op.GetExtrusionType(True) == c3d.etBlind, "Не blind-операция")
@@ -95,7 +102,7 @@ def change_depth(doc, depth):
     require(math.isclose(op.GetDepth(True), depth, abs_tol=1e-6), "Глубина не применилась")
 
 
-def snapshot(doc):
+def snapshot(doc: ksapi.IKompasDocument) -> tuple[float, ...]:
     """Actual body + full error tree, not just parameter readback."""
     part = require(ksapi.IKompasDocument3D(doc).GetTopPart(), "Компонент для проверки")
     bodies = ksapi.IFeature(part).GetResultBodies()
@@ -104,7 +111,7 @@ def snapshot(doc):
     require(bounds[0] and all(math.isfinite(v) for v in bounds[1:]), "Габариты")
     seen = set()
 
-    def visit(feature):
+    def visit(feature: ksapi.IFeature) -> None:
         if feature.reference in seen:
             return
         seen.add(feature.reference)
@@ -117,14 +124,14 @@ def snapshot(doc):
     return tuple(bounds[1:])
 
 
-def check_height(doc, height):
+def check_height(doc: ksapi.IKompasDocument, height: float) -> tuple[float, ...]:
     bounds = snapshot(doc)
     expected = (0., 0., 0., 20., 10., height)
     require(all(abs(a - b) <= 1e-6 for a, b in zip(bounds, expected)), f"Геометрия: {bounds}")
     return bounds
 
 
-def main():
+def main() -> None:
     app = require(ksapi.GetKompas(), "Нет API-сессии; запуск пользователем по SKILL.md")
     previous = app.GetActiveDocument()
     doc = None

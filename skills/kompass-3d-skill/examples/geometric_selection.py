@@ -8,46 +8,68 @@
 Координаты в системе детали, мм; углы в радианах. Нормали без знака.
 Цилиндры: полные круговые торцы и прямые швы, не произвольные обрезки.
 """
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator, Sequence
 import json
 import math
+from typing import Literal, TypeVar, TypedDict, overload
 
 import ksapi
 from constants import constants as c
 from constants3d import constants as c3d
 
 
-def require(value, message):
+T = TypeVar("T")
+F = TypeVar("F")
+Vector3 = tuple[float, float, float]
+Span = tuple[float, float]
+
+
+class SelectionRequest(TypedDict, total=False):
+    point: Vector3
+    normal: Vector3
+    center: Vector3
+    radius: float
+    axis_point: Vector3
+    axis: Vector3
+    span: Sequence[float]
+    length_tol: float
+    angle_tol: float
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
-def vector(values):
+def vector(values: Sequence[float]) -> Vector3:
     values = tuple(values)
     if len(values) != 3 or not all(math.isfinite(v) for v in values):
         raise ValueError(f"Некорректный вектор: {values}")
     return values
 
 
-def output_point(result, label):
+def output_point(result: tuple[bool, float, float, float], label: str) -> Vector3:
     require(result[0], label)
     return vector(result[1:])
 
 
-def subtract(a, b):
+def subtract(a: Vector3, b: Vector3) -> Vector3:
     return tuple(x - y for x, y in zip(a, b))
 
 
-def dot(a, b):
+def dot(a: Vector3, b: Vector3) -> float:
     return sum(x * y for x, y in zip(a, b))
 
 
-def cross(a, b):
+def cross(a: Vector3, b: Vector3) -> Vector3:
     return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
             a[0] * b[1] - a[1] * b[0])
 
 
-def unit(values):
+def unit(values: Sequence[float]) -> Vector3:
     values = vector(values)
     length = math.hypot(*values)
     if not math.isfinite(length) or length == 0:
@@ -55,26 +77,34 @@ def unit(values):
     return tuple(v / length for v in values)
 
 
-def tolerances(length_tol, angle_tol):
+def tolerances(length_tol: float, angle_tol: float) -> None:
     if not math.isfinite(length_tol) or length_tol <= 0:
         raise ValueError("length_tol должен быть положительным, мм")
     if not math.isfinite(angle_tol) or not 0 < angle_tol < math.pi / 2:
         raise ValueError("angle_tol должен быть между 0 и pi/2, радианы")
 
 
-def parallel(a, b, angle_tol):
+def parallel(a: Vector3, b: Vector3, angle_tol: float) -> bool:
     """Сравнить неориентированные оси: n и -n задают одну плоскость/ось."""
     return math.atan2(math.hypot(*cross(a, b)), abs(dot(a, b))) <= angle_tol
 
 
-def placement_geometry(geometry):
+def placement_geometry(geometry: ksapi.IMathCurve3D | ksapi.IMathSurface3D) -> tuple[Vector3, Vector3]:
     placement = require(geometry.GetPlacement(), "Локальная система аналитической геометрии")
     origin = output_point(placement.GetOrigin(0., 0., 0.), "Начало ЛСК")
     axis = unit(output_point(placement.GetVector(c3d.o3d_axisOZ, 0., 0., 0.), "Ось Z ЛСК"))
     return origin, axis
 
 
-def topology(part, body, kind):
+@overload
+def topology(part: ksapi.IPart, body: ksapi.IBody, kind: Literal[6]) -> Iterator[ksapi.IFace]: ...
+
+
+@overload
+def topology(part: ksapi.IPart, body: ksapi.IBody, kind: Literal[7]) -> Iterator[ksapi.IEdge]: ...
+
+
+def topology(part: ksapi.IPart, body: ksapi.IBody, kind: int) -> Iterator[ksapi.IFace | ksapi.IEdge]:
     """Свежая выборка с принадлежностью ровно заданному текущему телу."""
     feature = require(ksapi.IFeature(part), "Топология детали")
     bodies = feature.GetResultBodies()
@@ -87,20 +117,20 @@ def topology(part, body, kind):
             yield obj
 
 
-def positive_radius(radius):
+def positive_radius(radius: float) -> float:
     if not math.isfinite(radius) or radius <= 0:
         raise ValueError(f"Некорректный радиус: {radius}")
     return radius
 
 
-def circle_geometry(edge):
+def circle_geometry(edge: ksapi.IEdge) -> tuple[Vector3, Vector3, float]:
     curve = require(edge.GetMathCurve(), "Математическая окружность")
     center = output_point(curve.GetCentre(0., 0., 0.), "Центр окружности")
     _, normal = placement_geometry(curve)
     return center, normal, positive_radius(curve.GetRadius())
 
 
-def unique(candidates, wanted, predicate):
+def unique(candidates: Sequence[tuple[T, F]], wanted: SelectionRequest, predicate: Callable[[F], bool]) -> T:
     """Никакого ranking/fallback: ноль или несколько совпадений — диагностика."""
     matches = [item for item in candidates if predicate(item[1])]
     if len(matches) != 1:
@@ -110,7 +140,7 @@ def unique(candidates, wanted, predicate):
     return matches[0][0]
 
 
-def select_plane(part, body, *, point, normal, length_tol, angle_tol):
+def select_plane(part: ksapi.IPart, body: ksapi.IBody, *, point: Vector3, normal: Vector3, length_tol: float, angle_tol: float) -> ksapi.IFace:
     """Плоскость через point, normal без знака. Не тест попадания point в контур."""
     tolerances(length_tol, angle_tol)
     point, normal = vector(point), unit(normal)
@@ -126,7 +156,7 @@ def select_plane(part, body, *, point, normal, length_tol, angle_tol):
                   and item["plane_distance"] <= length_tol)
 
 
-def select_circle(part, body, *, center, radius, normal, length_tol, angle_tol):
+def select_circle(part: ksapi.IPart, body: ksapi.IBody, *, center: Vector3, radius: float, normal: Vector3, length_tol: float, angle_tol: float) -> ksapi.IEdge:
     """Только целые окружности IEdge.IsCircle(), не дуги и не эллипсы."""
     tolerances(length_tol, angle_tol)
     center, normal, radius = vector(center), unit(normal), positive_radius(radius)
@@ -142,7 +172,7 @@ def select_circle(part, body, *, center, radius, normal, length_tol, angle_tol):
                   and parallel(item["normal"], normal, angle_tol))
 
 
-def cylinder_span(face, axis_point, axis, length_tol, angle_tol):
+def cylinder_span(face: ksapi.IFace, axis_point: Vector3, axis: Vector3, length_tol: float, angle_tol: float) -> Span:
     """Точные осевые экстремумы для полных круговых торцов и прямых швов.
 
     Для наклонных/сплайновых обрезок нужен другой маршрут; не заменять AABB.
@@ -166,7 +196,7 @@ def cylinder_span(face, axis_point, axis, length_tol, angle_tol):
     return min(projections), max(projections)
 
 
-def select_cylinder(part, body, *, radius, axis_point, axis, span, length_tol, angle_tol):
+def select_cylinder(part: ksapi.IPart, body: ksapi.IBody, *, radius: float, axis_point: Vector3, axis: Vector3, span: Span, length_tol: float, angle_tol: float) -> ksapi.IFace:
     """span — осевые координаты от axis_point вдоль заданного axis, в мм."""
     tolerances(length_tol, angle_tol)
     radius, axis_point, axis = positive_radius(radius), vector(axis_point), unit(axis)
@@ -192,7 +222,7 @@ def select_cylinder(part, body, *, radius, axis_point, axis, span, length_tol, a
                   and all(abs(a - b) <= length_tol for a, b in zip(item["span"], span)))
 
 
-def build(part, model):
+def build(part: ksapi.IPart, model: ksapi.IModelContainer) -> None:
     """Собственная кольцевая деталь R5…15, Z=0…10 для квалификации выбора."""
     sketch = require(model.GetSketchs().Add(), "Эскиз кольца")
     sketch.SetPlane(require(part.GetDefaultObject(c3d.o3d_planeXOY), "Плоскость XOY"))
@@ -216,7 +246,7 @@ def build(part, model):
     require(operation.Update(), "Построение кольца")
 
 
-def validate(part, *, origin=(0, 0, 0), axis=(0, 0, 1)):
+def validate(part: ksapi.IPart, *, origin: Vector3 = (0, 0, 0), axis: Vector3 = (0, 0, 1)) -> None:
     # Допуски выбраны для этой аналитической детали, не defaults селекторов.
     options = {"length_tol": 1e-5, "angle_tol": 1e-7}
     bodies = require(ksapi.IFeature(part), "Результат детали").GetResultBodies()
@@ -242,7 +272,7 @@ def validate(part, *, origin=(0, 0, 0), axis=(0, 0, 1)):
     print("PASS: плоскость, окружность, внутренний/наружный цилиндры, пустой/неоднозначный выбор")
 
 
-def main():
+def main() -> None:
     app = require(ksapi.GetKompas(), "Нет запущенной API-сессии КОМПАС")
     previous = app.GetActiveDocument()
     doc = None

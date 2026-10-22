@@ -20,6 +20,27 @@ NAMES = ["01_plate", "02_ring", "03_holes", "04_revolve", "05_offset_plane",
 
 
 class GalleryTests(unittest.TestCase):
+    def test_example_function_signatures_are_annotated(self):
+        def check(node, path):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.name == "validate":
+                    return
+                with self.subTest(path=path, function=node.name, line=node.lineno):
+                    self.assertIsNotNone(node.returns, "Missing return annotation")
+                    arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+                    arguments.extend(arg for arg in (node.args.vararg, node.args.kwarg) if arg)
+                    for argument in arguments:
+                        self.assertIsNotNone(argument.annotation,
+                                             f"Missing annotation for {argument.arg}")
+            for child in ast.iter_child_nodes(node):
+                check(child, path)
+
+        for path in EXAMPLES.rglob("*.py"):
+            check(ast.parse(path.read_text()), path)
+        skill = ROOT / "SKILL.md"
+        for snippet in re.findall(r"```python\n(.*?)\n```", skill.read_text(), re.DOTALL):
+            check(ast.parse(snippet), skill)
+
     def test_examples_are_standalone_scripts(self):
         for name in NAMES:
             with self.subTest(name=name):
@@ -89,16 +110,16 @@ class GalleryTests(unittest.TestCase):
                         self.assertTrue((document.parent / url.split("#")[0]).exists(), url)
 
     def test_gallery_local_links_exist(self):
-        text = (ROOT / "references/recipes.md").read_text()
+        text = (ROOT / "SKILL.md").read_text()
         for name in NAMES:
-            self.assertIn(f"../examples/{name}.py", text)
-            self.assertIn(f"../examples/{name}.jpg", text)
+            self.assertIn(f"examples/{name}.py", text)
+            self.assertIn(f"examples/{name}.jpg", text)
             path = EXAMPLES / f"{name}.jpg"
             self.assertTrue(path.is_file(), path)
             self.assertGreater(path.stat().st_size, 1000)
         for url in re.findall(r'\]\(([^)]+)\)', text):
             if "://" not in url and not url.startswith("#"):
-                self.assertTrue((ROOT / "references" / url.split("#")[0]).exists(), url)
+                self.assertTrue((ROOT / url.split("#")[0]).exists(), url)
 
 
 class RasterSafetyTests(unittest.TestCase):

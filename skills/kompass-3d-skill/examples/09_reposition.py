@@ -7,21 +7,28 @@
 Это операция внутри детали, не размещение вхождения сборки.
 Без аргументов документ временный; --output сохраняет новый .m3d.
 """
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
+from typing import TypeVar
 
 import ksapi
 from constants import constants as c
 from constants3d import constants as c3d
 
 
-def require(value, message):
+T = TypeVar("T")
+Bounds = tuple[float, float, float, float, float, float]
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
-def build(part, model):
+def build(part: ksapi.IPart, model: ksapi.IModelContainer) -> None:
     sketch = require(model.GetSketchs().Add(), "Эскиз")
     sketch.SetPlane(part.GetDefaultObject(c3d.o3d_planeXOY))
     require(sketch.Update(), "Опора эскиза")
@@ -54,7 +61,7 @@ def build(part, model):
     require(operation.Update(), "Поворот и перенос")
 
 
-def validate(part):
+def validate(part: ksapi.IPart) -> Bounds:
     require(part.RebuildModel(True), "Перестроение")
     bodies = ksapi.IFeature(part).GetResultBodies()
     require(len(bodies) == 1 and bodies[0].IsSolid(), "Одно твёрдое тело")
@@ -63,7 +70,7 @@ def validate(part):
     require(bounds[0] and all(abs(a - b) < 1e-5 for a, b in zip(bounds[1:], expected)), "Преобразованные габариты")
     seen = set()
 
-    def visit(feature):
+    def visit(feature: ksapi.IFeature) -> None:
         if feature.reference in seen:
             return
         seen.add(feature.reference)
@@ -76,7 +83,7 @@ def validate(part):
     return tuple(bounds[1:])
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()

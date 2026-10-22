@@ -9,11 +9,15 @@ Attach to an existing API session only. Default: temporary files and owned docs.
 an existing directory nor an existing file is overwritten. Do not move only the
 assembly: its external source must remain available. No mates or Undo commands.
 """
+from __future__ import annotations
+
+from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 import argparse
 import math
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TypeVar
 
 import ksapi
 from constants import constants as c
@@ -24,30 +28,34 @@ IDENTITY = (1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1.)
 TRANSLATED = (*IDENTITY[:12], 30., 0., 0., 1.)
 
 
-def require(value, message):
+T = TypeVar("T")
+Bounds = tuple[float, float, float, float, float, float]
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
-def close_owned(owned):
+def close_owned(owned: list[ksapi.IKompasDocument]) -> None:
     while owned:
         doc = owned[-1]
         require(doc.Close(c.kdDoNotSaveChanges), "Close owned document")
         owned.pop()
 
 
-def save_new(doc, path):
+def save_new(doc: ksapi.IKompasDocument, path: Path) -> None:
     if path.exists():
         raise FileExistsError(path)
     require(doc.SaveAs(str(path)), f"Save {path.name}")
     require(path.is_file() and path.stat().st_size > 0, f"Missing/empty file: {path}")
 
 
-def check_tree(part):
+def check_tree(part: ksapi.IPart) -> None:
     seen = set()
 
-    def visit(feature):
+    def visit(feature: ksapi.IFeature) -> None:
         if feature.reference in seen:
             return
         seen.add(feature.reference)
@@ -59,7 +67,7 @@ def check_tree(part):
     visit(ksapi.IFeature(part))
 
 
-def check_block(part):
+def check_block(part: ksapi.IPart) -> Bounds:
     bodies = ksapi.IFeature(part).GetResultBodies()
     require(len(bodies) == 1 and bodies[0].IsSolid(), "Expected one solid block")
     bounds = bodies[0].GetGabarit(0., 0., 0., 0., 0., 0.)
@@ -72,7 +80,7 @@ def check_block(part):
     return tuple(bounds[1:])
 
 
-def make_block(doc):
+def make_block(doc: ksapi.IKompasDocument) -> None:
     part = require(ksapi.IKompasDocument3D(doc).GetTopPart(), "Source top part")
     model = require(part.GetModelContainer(), "Source model")
     sketch = require(model.GetSketchs().Add(), "Sketch")
@@ -101,7 +109,7 @@ def make_block(doc):
             f"Source bounds: {bounds}")
 
 
-def validate(doc, source_path=None):
+def validate(doc: ksapi.IKompasDocument, source_path: str | Path | None = None) -> None:
     """Read fresh occurrences; optionally require their exact expected source path."""
     top = require(ksapi.IKompasDocument3D(doc).GetTopPart(), "Assembly top part")
     require(top.RebuildModel(True), "Rebuild assembly before verification")
@@ -126,7 +134,7 @@ def validate(doc, source_path=None):
 
 
 @contextmanager
-def assembly(app, directory):
+def assembly(app: ksapi.IApplication, directory: str | Path) -> Iterator[ksapi.IKompasDocument]:
     """Yield an owned assembly; caller keeps directory alive until after this exits.
 
     directory must exist. Source closes BEFORE insertion; assembly closes BEFORE
@@ -164,7 +172,7 @@ def assembly(app, directory):
         close_owned(owned)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, help="New directory for BOTH native files")
     args = parser.parse_args()

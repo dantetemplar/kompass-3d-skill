@@ -6,23 +6,30 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 import math
 from pathlib import Path
+from typing import TypeVar
 
 import ksapi
 from constants import constants as c
 from constants3d import constants as c3d
 
 
-def require(value, message):
+T = TypeVar("T")
+Bounds = tuple[float, float, float, float, float, float]
+CylindricalWall = tuple[float, float, float, float, float]
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
 @contextmanager
-def sketch_xoy(part, model):
+def sketch_xoy(part: ksapi.IPart, model: ksapi.IModelContainer) -> Iterator[tuple[ksapi.ISketch, ksapi.IDrawingContainer]]:
     sketch = require(model.GetSketchs().Add(), "Эскиз")
     sketch.SetPlane(require(part.GetDefaultObject(c3d.o3d_planeXOY), "Плоскость XOY"))
     require(sketch.Update(), "Плоскость эскиза")
@@ -34,7 +41,7 @@ def sketch_xoy(part, model):
         require(sketch.EndEdit(), "Завершение эскиза")
 
 
-def rectangle(drawing, x, y, width, height):
+def rectangle(drawing: ksapi.IDrawingContainer, x: float, y: float, width: float, height: float) -> ksapi.IRectangle:
     obj = require(drawing.GetRectangles().Add(), "Прямоугольник")
     obj.SetX(x)
     obj.SetY(y)
@@ -44,7 +51,7 @@ def rectangle(drawing, x, y, width, height):
     return obj
 
 
-def circle(drawing, x, y, radius):
+def circle(drawing: ksapi.IDrawingContainer, x: float, y: float, radius: float) -> ksapi.ICircle:
     obj = require(drawing.GetCircles().Add(), "Окружность")
     obj.SetXc(x)
     obj.SetYc(y)
@@ -53,7 +60,7 @@ def circle(drawing, x, y, radius):
     return obj
 
 
-def extrude(model, sketch, depth, *, cut=False):
+def extrude(model: ksapi.IModelContainer, sketch: ksapi.ISketch, depth: float, *, cut: bool = False) -> ksapi.IExtrusion:
     operation = require(model.GetExtrusions().Add(
         c3d.o3d_cutExtrusion if cut else c3d.o3d_bossExtrusion
     ), "Выдавливание")
@@ -65,11 +72,11 @@ def extrude(model, sketch, depth, *, cut=False):
     return operation
 
 
-def feature_errors(part):
+def feature_errors(part: ksapi.IPart) -> list[tuple[list[str], int]]:
     """Проверить все ветви дерева, включая скрытые эскизы."""
     errors, seen = [], set()
 
-    def visit(feature, path):
+    def visit(feature: ksapi.IFeature, path: Sequence[str]) -> None:
         if feature.reference in seen:
             return
         seen.add(feature.reference)
@@ -85,7 +92,7 @@ def feature_errors(part):
     return errors
 
 
-def verify_cylindrical_walls(part, expected, *, tolerance=1e-5):
+def verify_cylindrical_walls(part: ksapi.IPart, expected: Sequence[CylindricalWall], *, tolerance: float = 1e-5) -> None:
     """Проверить радиусы, центры и высоту простых цилиндров вдоль Z."""
     feature = require(ksapi.IFeature(part), "Топология детали")
     actual = []
@@ -124,7 +131,7 @@ def verify_cylindrical_walls(part, expected, *, tolerance=1e-5):
         actual.pop(matches[0])
 
 
-def build(part, model):
+def build(part: ksapi.IPart, model: ksapi.IModelContainer) -> ksapi.ILinearPattern:
     """Выдавить пластину, вырезать seed и размножить операцию по OX/OY."""
     with sketch_xoy(part, model) as (profile, drawing):
         rectangle(drawing, -30, -20, 60, 40)
@@ -180,7 +187,7 @@ def validate(part):
     return bounds
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Новый файл .m3d; без него — временная деталь")
     args = parser.parse_args(argv)

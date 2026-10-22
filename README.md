@@ -39,7 +39,7 @@ uv run --script scripts/sdk.py page IExtrusions.Add ISketch.BeginEdit
 uv run --script scripts/sdk.py inspect IExtrusion.SetSideParameters --source
 ```
 
-По умолчанию используется нативный KsAPI; Windows API7/API5 доступны только при явном `--section`. Подробности — в [references/ksapi.md](skills/kompass-3d-skill/references/ksapi.md).
+По умолчанию используется нативный KsAPI; Windows API7/API5 доступны только при явном `--section`. Подробности — в [справочнике KsAPI](skills/kompass-3d-skill/SKILL.md#нативный-ksapi-справочник-рабочего-процесса).
 
 ## Запуск макросов
 
@@ -103,9 +103,43 @@ bash skills/kompass-3d-skill/scripts/run.sh tools/run_examples.py --only 02_ring
 
 Источник учебных заданий, чертежей, превью и исходных компонентов — [официальный каталог SOLIDWORKS Practice Problems](https://www.solidworks.com/solution/education/practice-problems). Материалы принадлежат Dassault Systèmes; условия использования приведены в оригиналах.
 
+## Источники и подробности
+
+Справочные ссылки ниже не являются списком обязательного чтения.
+
+- [Рецепты](skills/kompass-3d-skill/SKILL.md#рецепты-для-компас-3d-на-python) и [основа макроса](skills/kompass-3d-skill/examples/basic_part.py) — готовые реализации для адаптации и уточнения деталей.
+- [Нативный KsAPI: цепочки, маршалинг и кривые](skills/kompass-3d-skill/SKILL.md#нативный-ksapi-справочник-рабочего-процесса) — подробности при диагностике.
+- [Официальный SDK](https://help.ascon.ru/KOMPAS_SDK/25/ru-RU/) — назначение и ограничения операций.
+- Локальные `ksapi.py`, `constants.py`, `constants3d.py` — фактические имена, сигнатуры и маршалинг; импорт ради этих данных не нужен.
+
+### Внешние проекты и интеграции
+
+Это источники идей, адресных примеров и необязательные дополнения, не обязательные зависимости.
+
+#### Дополнительные скиллы
+
+- [earthtojake/text-to-cad](https://github.com/earthtojake/text-to-cad): `cad` — постановка задачи и проверка геометрии; `dfm` — технологичность; `dfam-check` — проверки для аддитивного производства; `step-parts` — поиск стандартных и покупных деталей; `engineering-drawing` — оформление чертежей. Установка описана в [upstream README](https://github.com/earthtojake/text-to-cad#install). Инженерные рекомендации можно использовать для отдельных задач, а создание и изменение `.m3d`/`.a3d`, API-сессию, сохранение и изображения выполнять через нативный KsAPI. Маршрут `cadgen/build123d → STEP` не заменяет нативное дерево КОМПАС; STEP-детали остаются импортированными компонентами. Ссылка не устанавливает скиллы и не запускает MCP-серверы, viewer или оборудование.
+- [kompas-guard-sdk](https://github.com/dwnmf/kompas-3d-guard-bin/blob/master/.agents/skills/kompas-guard-sdk/SKILL.md) — дополнительный источник подходов к работе с SDK КОМПАС.
+
+#### Реализации и примеры
+
+- [IsWaFF/kompas3d-skill](https://github.com/IsWaFF/kompas3d-skill), MIT: нативный `ksapi`, в основном 2D. Полезны примеры размеров, дуг, заливок, поиска наложений и selftest; тонкости направления дуг и экспорта проверять на своей установке. Его distrobox/Xephyr-схему запуска сюда не переносить.
+- [kostia-egik/geomwright](https://github.com/kostia-egik/geomwright), MIT: Windows COM, не нативный KsAPI. Полезны [CAD-инварианты](https://github.com/kostia-egik/geomwright/blob/main/CAD_PATTERNS.md): разделение расчёта и построения, чтение конечной геометрии независимо от истории и остановка после неизвестного исхода вызова. Сложные инженерные семейства и проверки сохранения не добавлять в простую задачу без необходимости.
+- [SergeySklyarov/Kompas3D-MCP](https://github.com/SergeySklyarov/Kompas3D-MCP): Windows COM/.NET. Полезно различение «вызов вернулся», «геометрия проверена», «сохранение/повторное открытие проверены» и явное перечисление непроверенного. После изменения топологии заново выбирать грани/рёбра; после обрыва соединения не повторять запись до проверки состояния. Его механизм автозапуска/перезапуска не переносить.
+- [hymaxo/kompas3d-mcp](https://github.com/hymaxo/kompas3d-mcp), MIT: Windows COM/API5/API7. Полезна [коллекция рецептов](https://github.com/hymaxo/kompas3d-mcp/blob/main/skills/kompas-modeling/references/recipes.md) с входными размерами, ожидаемыми габаритами, числом тел и аналитическим объёмом. Использовать её как источник геометрии и критериев результата, а вызовы адаптировать по нативной обёртке. Объём проверять, когда он нужен для подтверждения внутренней операции, не как обязательный этап каждой задачи.
+- [xomyachok-shaolin/kompas-3d-mcp-linux](https://github.com/xomyachok-shaolin/kompas-3d-mcp-linux): нативный C++ KsAPI v24 в Linux. [bridge.cpp](https://github.com/xomyachok-shaolin/kompas-3d-mcp-linux/blob/main/src/bridge.cpp) полезен для поиска цепочек 2D-размеров, штампа и экспорта. Явная лицензия на повторное использование не установлена: код не копировать; его запуск, IPC и threading-схему не переносить.
+- [nikitamamay/KompasAPI-01](https://github.com/nikitamamay/KompasAPI-01), MIT: Windows COM-обёртка со stubs и встроенной документацией. Полезны типы и иерархия для поиска понятий, но это не stubs нативного KsAPI и не источник его фактических сигнатур. Не возвращать LSP и COM-зависимости ради этой базы.
+
+Код этих проектов в скилл не скопирован. Даже MIT-код перед переносом требует сохранения уведомлений о лицензии и проверки применимости к нативному API; документация SDK может иметь отдельные права.
+
+#### Подготовка справки и стабов
+
+- [dwnmf/kompas_3d_api](https://github.com/dwnmf/kompas_3d_api) — исходный конвертер WebHelp, из которого адаптировано преобразование справки. Наш корпус собирается из локального официального SDK; права на документацию принадлежат её правообладателям.
+- [nikitamamay/KompasAPI-stubs-generator](https://github.com/nikitamamay/KompasAPI-stubs-generator) — источник исследования подхода к генерации стабов.
+
 ## Состав
 
-- `skills/kompass-3d-skill/` — автономный переносимый скилл: `SKILL.md`, `references/`, `examples/`, `scripts/`.
+- `skills/kompass-3d-skill/` — автономный переносимый скилл: `SKILL.md` со справочником и рецептами, `examples/`, `scripts/`.
 - `skills/kompass-3d-skill/scripts/prepare/` — офлайн-подготовка справки и типизированных стабов.
 - `macros/` — тестовые макросы разработки, не входят в устанавливаемый скилл.
 - `examples.md` — документация разработки: запуск примеров, проверки и измерения.
@@ -119,4 +153,4 @@ bash skills/kompass-3d-skill/scripts/run.sh tools/run_examples.py --only 02_ring
 
 Скилл не зависит от патчей или изменённых библиотек лицензирования. Эти файлы и их Git-история в репозиторий не включены.
 
-Справка извлекается из установленной официальной WebHelp SDK. Преобразование адаптировано из [dwnmf/kompas_3d_api](https://github.com/dwnmf/kompas_3d_api), подход к стабам исследован в [KompasAPI-stubs-generator](https://github.com/nikitamamay/KompasAPI-stubs-generator). КОМПАС-3D и SDK принадлежат АСКОН; проект неофициальный.
+Справка извлекается из установленной официальной WebHelp SDK. КОМПАС-3D и SDK принадлежат АСКОН; проект неофициальный.

@@ -20,6 +20,23 @@ SKILL_DIR = Path(__file__).resolve().parents[2]
 def audit(docs: Path, stubs: Path) -> dict:
     pages = [json.loads(line) for line in (docs / "llm/pages.jsonl").read_text(encoding="utf-8").splitlines() if line]
     native = {page["source_html"]: page for page in pages if page["section"] == "API интерфейсов. KsAPI"}
+    documents: dict[Path, set[str]] = {}
+    for page in pages:
+        if page["section"] not in {"API интерфейсов. KsAPI", "Константы API"}:
+            continue
+        relative = next((page[key] for key in ("markdown_path", "markdown", "output_markdown") if page.get(key)), None)
+        if relative:
+            target = Path(relative)
+            target = target if target.is_absolute() else docs / target
+        else:
+            def filename(value):
+                safe = re.sub(r"[^\w.-]+", "_", value).strip("._")
+                safe = safe[:70].encode("utf-8")[:160].decode("utf-8", "ignore").strip("._") or "unnamed"
+                return safe + "__" + hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+            owner = str(page.get("symbol") or "_other").split(".")[0]
+            target = docs / "llm/api_objects" / filename(page["section"]) / (filename(owner) + ".md")
+        owner = "constants" if page["section"] == "Константы API" else str(page.get("symbol") or "").split(".")[0]
+        documents.setdefault(target.resolve(), set()).add(owner)
     errors = []
     unknowns = []
     class_nodes: dict[str, ast.ClassDef] = {}
@@ -48,34 +65,31 @@ def audit(docs: Path, stubs: Path) -> dict:
             symbol = f"{owner}.{name}" if owner and name else name or owner
             if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
                 doc = ast.get_docstring(node) or ""
-                matched = re.search(r"Native documentation: (\S+) \(id:", doc)
-                if matched:
+                if "Источник SDK:" in doc or "Источники SDK:" in doc:
+                    if not isinstance(node, ast.ClassDef):
+                        errors.append({"symbol": symbol, "error": "SDK sources must be listed on the class"})
                     counts["docstrings_with_native_pages"] += 1
-                    source = matched.group(1)
-                    page = native.get(source)
-                    if page is None:
-                        errors.append({"symbol": symbol, "error": "non-native or absent documentation", "source": source})
-                    elif page.get("symbol") and page["symbol"] != symbol:
-                        expected = page["symbol"]
-                        cls = class_nodes.get(owner)
-                        seen = set()
-                        inherited = False
-                        pending = list(cls.bases) if cls else []
-                        while pending:
-                            base = ast.unparse(pending.pop())
-                            if base in seen:
-                                continue
-                            seen.add(base)
-                            if expected == base + "." + name:
-                                inherited = True
-                                break
-                            if base in class_nodes:
-                                pending.extend(class_nodes[base].bases)
-                        if not inherited:
-                            errors.append({"symbol": symbol, "error": "documentation belongs to another symbol", "page_symbol": expected})
-                for href in re.findall(r"Local documentation: \[.*?\]\(([^\n]+)\)", doc):
-                    counts["local_links_checked"] += 1
-                    check_link(path, href, symbol)
+                    allowed = {name}
+                    pending = list(node.bases) if isinstance(node, ast.ClassDef) else []
+                    while pending:
+                        base = ast.unparse(pending.pop())
+                        if base in allowed:
+                            continue
+                        allowed.add(base)
+                        if base in class_nodes:
+                            pending.extend(class_nodes[base].bases)
+                    links = re.findall(r"(?m)^- \[[^\]]+\]\(([^\n)]+)\)", doc)
+                    if not links:
+                        errors.append({"symbol": symbol, "error": "missing class SDK source links"})
+                    for href in links:
+                        counts["local_links_checked"] += 1
+                        check_link(path, href, symbol)
+                        target = (path.parent / unquote(href).split("#", 1)[0]).resolve()
+                        owners = documents.get(target)
+                        if owners is None:
+                            errors.append({"symbol": symbol, "error": "non-native or absent documentation", "target": href})
+                        elif not owners.intersection(allowed | {"constants"}):
+                            errors.append({"symbol": symbol, "error": "documentation belongs to another symbol", "target": href})
             annotations = []
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 annotations = [(a.arg, a.annotation) for a in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]]

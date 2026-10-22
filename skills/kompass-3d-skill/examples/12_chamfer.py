@@ -6,9 +6,11 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 import math
 from pathlib import Path
+from typing import TypeVar
 
 import ksapi
 from constants import constants as c
@@ -18,14 +20,19 @@ from constants3d import constants as c3d
 TOLERANCE = 1e-5
 
 
-def require(value, message):
+T = TypeVar("T")
+Point3D = tuple[float, float, float]
+Bounds = tuple[float, float, float, float, float, float]
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
 @contextmanager
-def sketch_xoy(part, model):
+def sketch_xoy(part: ksapi.IPart, model: ksapi.IModelContainer) -> Iterator[tuple[ksapi.ISketch, ksapi.IDrawingContainer]]:
     sketch = require(model.GetSketchs().Add(), "Эскиз")
     sketch.SetPlane(require(part.GetDefaultObject(c3d.o3d_planeXOY), "Плоскость XOY"))
     require(sketch.Update(), "Плоскость эскиза")
@@ -37,7 +44,7 @@ def sketch_xoy(part, model):
         require(sketch.EndEdit(), "Завершение эскиза")
 
 
-def rectangle(drawing, x, y, width, height):
+def rectangle(drawing: ksapi.IDrawingContainer, x: float, y: float, width: float, height: float) -> ksapi.IRectangle:
     obj = require(drawing.GetRectangles().Add(), "Прямоугольник")
     obj.SetX(x)
     obj.SetY(y)
@@ -47,7 +54,7 @@ def rectangle(drawing, x, y, width, height):
     return obj
 
 
-def extrude(model, sketch, depth):
+def extrude(model: ksapi.IModelContainer, sketch: ksapi.ISketch, depth: float) -> ksapi.IExtrusion:
     operation = require(model.GetExtrusions().Add(c3d.o3d_bossExtrusion), "Выдавливание")
     operation.SetProfiles([sketch])
     operation.SetDirection(c3d.dtNormal)
@@ -56,11 +63,11 @@ def extrude(model, sketch, depth):
     return operation
 
 
-def feature_errors(part):
+def feature_errors(part: ksapi.IPart) -> list[tuple[list[str], int]]:
     """Проверить все ветви дерева, включая скрытые эскизы."""
     errors, seen = [], set()
 
-    def visit(feature, path):
+    def visit(feature: ksapi.IFeature, path: Sequence[str]) -> None:
         if feature.reference in seen:
             return
         seen.add(feature.reference)
@@ -76,14 +83,14 @@ def feature_errors(part):
     return errors
 
 
-def points_close(first, second, *, tolerance=TOLERANCE):
+def points_close(first: Sequence[float], second: Sequence[float], *, tolerance: float = TOLERANCE) -> bool:
     return len(first) == len(second) == 3 and all(
         math.isfinite(a) and math.isfinite(b) and abs(a - b) <= tolerance
         for a, b in zip(first, second)
     )
 
 
-def edge_points(edge):
+def edge_points(edge: ksapi.IEdge) -> list[Point3D]:
     points = []
     for start in (True, False):
         result = edge.GetPoint(start, 0, 0, 0)
@@ -95,7 +102,7 @@ def edge_points(edge):
     return points
 
 
-def corner_edges(part):
+def corner_edges(part: ksapi.IPart) -> list[ksapi.IEdge]:
     """Выбрать ровно четыре прямых ребра (±30, ±20, Z=0…10)."""
     feature = require(ksapi.IFeature(part), "Топология исходной пластины")
     found = {}
@@ -114,7 +121,7 @@ def corner_edges(part):
     return list(found.values())
 
 
-def build(part, model):
+def build(part: ksapi.IPart, model: ksapi.IModelContainer) -> ksapi.IChamfer:
     """Выдавить пластину и снять 2 × 2 мм с каждого вертикального угла."""
     with sketch_xoy(part, model) as (profile, drawing):
         rectangle(drawing, -30, -20, 60, 40)
@@ -131,7 +138,7 @@ def build(part, model):
     return chamfer
 
 
-def verify_chamfer_faces(part):
+def verify_chamfer_faces(part: ksapi.IPart) -> None:
     """Проверить четыре диагональных прямоугольника по вершинам и площади."""
     feature = require(ksapi.IFeature(part), "Топология конечной детали")
     faces = feature.GetModelObjects([c3d.o3d_face])
@@ -174,7 +181,7 @@ def verify_chamfer_faces(part):
     require(found == set(expected), f"Не подтверждены четыре фаски: {sorted(found)}")
 
 
-def verify_volume(part):
+def verify_volume(part: ksapi.IPart) -> None:
     """Рассчитать объём конечной детали через нативный интерфейс МЦХ."""
     inertia = require(ksapi.IMassInertiaParam(part), "Массово-центровочные характеристики")
     # Native IMassInertiaParam(part) соответствует API7: 1 = мм, 0 = см.
@@ -207,7 +214,7 @@ def validate(part):
     return bounds
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Новый файл .m3d; без него — временная деталь")
     args = parser.parse_args(argv)

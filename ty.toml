@@ -1,0 +1,7 @@
+[environment]
+# Absolute path required: for PEP 723 scripts ty resolves relative paths from the script dir.
+extra-paths = ["/home/dante/Projects/dantetemplar/kompass-3d-skill/skills/kompass-3d-skill/.cache/kompas-stubs"]
+
+[rules]
+# Same policy as sdk.py check: stubs are T | None everywhere; keep missing-attr noise out of macros.
+unresolved-attribute = "ignore"

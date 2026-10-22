@@ -15,7 +15,7 @@ from zipfile import ZipFile
 from docs import NATIVE_SECTION, prepare_docs
 
 SKILL_SCRIPTS = SCRIPTS_DIR
-spec = importlib.util.spec_from_file_location("portable_sdk_index", SKILL_SCRIPTS / "sdk_index.py")
+spec = importlib.util.spec_from_file_location("portable_sdk", SKILL_SCRIPTS / "sdk.py")
 reader = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(reader)
 

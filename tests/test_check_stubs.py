@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from check_stubs import (CONTROL_TYPES, DEFAULT_MYPY, check_controls, check_documentation,
+from check_stubs import (CONTROL_TYPES, DEFAULT_MYPY, check_controls, check_documentation, check_enum_aliases,
                          compare_surface, file_fingerprint, native_review, run_mypy,
                          validate_type_names, verify)
 
@@ -187,25 +187,204 @@ class DocumentationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             docs = Path(directory) / "pages.jsonl"
             tree = ast.parse(CONTROL_STUB)
-            methods = {f"{c.name}.{m.name}": m for c in tree.body if isinstance(c, ast.ClassDef)
+            classes = {c.name: c for c in tree.body if isinstance(c, ast.ClassDef)}
+            methods = {f"{c.name}.{m.name}": m for c in classes.values()
                        for m in c.body if isinstance(m, ast.FunctionDef)}
+            for cls in classes.values():
+                cls.body.insert(0, ast.Expr(value=ast.Constant(value=f"Источники SDK:\n- [{cls.name}]({cls.name}.md)")))
             pages = []
             for symbol in CONTROL_TYPES:
                 if "." not in symbol:
                     continue
                 source = "ksapi_" + symbol.lower().replace(".", "_") + ".html"
                 content = f"Native text for {symbol}"
-                pages.append({"section": "API интерфейсов. KsAPI", "source_html": source, "content": content})
+                if symbol == "ISketch.GetPoint3D":
+                    content = "Входные параметры:\n\n| xIn | input coordinate |\n\nВозвращаемое значение:\n\nSuccess status."
+                pages.append({"section": "API интерфейсов. KsAPI", "source_html": source, "content": content,
+                              "markdown_path": f"llm/{symbol.split('.')[0]}.md"})
                 pages.append({"section": "API интерфейсов. Версия 7", "source_html": "api7_" + source, "content": "WRONG API7"})
-                methods[symbol].body.insert(0, ast.Expr(value=ast.Constant(value=f"{content}\nLocal documentation: [link](local.md)\nNative documentation: {source}")))
+                methods[symbol].body.insert(0, ast.Expr(value=ast.Constant(value=content)))
             docs.write_text("\n".join(json.dumps(p) for p in pages), encoding="utf-8")
             errors = []
             self.assertEqual(check_documentation(tree, docs, errors), 5)
             self.assertEqual(errors, [])
-            methods["ISketch.BeginEdit"].body[0].value.value = "WRONG API7\nNative documentation: api7_isketch_beginedit.html"
+            methods["ISketch.BeginEdit"].body[0].value.value = "WRONG API7\nИсточник SDK: [api7_isketch_beginedit.html](wrong.md)"
             check_documentation(tree, docs, errors)
             self.assertIn("docs_mismatch", [e["code"] for e in errors])
             self.assertEqual(errors[0]["symbol"], "ISketch.BeginEdit")
+
+
+class EnumVerificationTests(unittest.TestCase):
+    def test_independent_enum_values_mapping_and_input_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            docs, metadata = root / "pages.jsonl", root / "metadata.json"
+            docs.write_text(json.dumps({"section": "Константы API", "title": "KindEnum - Тип",
+                                        "content": "| FIRST | 0 | Первый |\n| SECOND | 1 | Второй |"}))
+            metadata.write_text(json.dumps({"name_c": "Client_Set", "parameters": [
+                {"name": "self", "type_cpp": "ISelfPtr", "in": True},
+                {"name": "value", "type_cpp": "KindEnum", "in": True}]}))
+            constants = '''from typing import Literal, TypeAlias
+KindEnum: TypeAlias = Literal[0, 1]
+"""Тип
+0 — FIRST: Первый
+1 — SECOND: Второй
+"""
+'''
+            source = "class Client:\n    def Set(self, value): ksapi.Client_Set(self.app, self.reference, value)"
+            stub = "from constants import KindEnum\nclass Client:\n    def Set(self, value: KindEnum) -> None: ..."
+            def check(constant_text=constants, stub_text=stub):
+                errors = []
+                trees = {"constants": (ast.parse("FIRST = 0\nSECOND = FIRST | 1"), ast.parse(constant_text)),
+                         "ksapi": (ast.parse(source), ast.parse(stub_text))}
+                counts = check_enum_aliases(trees, docs, metadata, errors)
+                return counts, errors
+            counts, errors = check()
+            self.assertEqual(errors, [])
+            self.assertEqual(counts, {"aliases": 1, "input_parameters": 1, "inline_input_parameters": 0})
+            self.assertIn("enum_values", [e["code"] for e in check(constants.replace("Literal[0, 1]", "Literal[0, 2]"))[1]])
+            self.assertIn("enum_mapping", [e["code"] for e in check(constants.replace("1 — SECOND", "1 — WRONG"))[1]])
+            original_docs = docs.read_text()
+            for content, code in [
+                ("| FIRST | 0 | First |\n| SECOND | | Missing |", "enum_table"),
+                ("| FIRST | 0 | First |\n| SECOND | 2 | Drift |", "enum_installed_values"),
+                ("| FIRST | 0 | First |\n| SECOND | 1 | 8 | Composite |", "enum_table"),
+            ]:
+                docs.write_text(json.dumps({"section": "Константы API", "title": "KindEnum - Kind", "content": content}))
+                self.assertIn(code, [e["code"] for e in check()[1]])
+            docs.write_text(original_docs + "\n" + json.dumps({"content": "Комбинация [KindEnum](<webhelp:kind.html>)"}))
+            self.assertIn("enum_domain", [e["code"] for e in check()[1]])
+            docs.write_text(original_docs)
+            metadata.write_text(metadata.read_text().replace("KindEnum", "int32_t"))
+            self.assertIn("enum_binding", [e["code"] for e in check()[1]])
+
+
+class InlineEnumVerificationTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        self.docs, self.metadata = root / "pages.jsonl", root / "metadata.json"
+        self.page = {"section": "Константы API", "title": "KindEnum - Тип",
+                     "content": "| FIRST | 0 | Первый |\n| SECOND | 1 | Второй |"}
+        self.cpp = {"name_c": "Client_Set", "parameters": [
+            {"name": "self", "type_cpp": "ISelfPtr", "in": True},
+            {"name": "value", "type_cpp": "KindEnum", "in": True}]}
+        self.source = "class Client:\n    def Set(self, value): ksapi.Client_Set(self.app, self.reference, value)"
+        self.stub = '''from typing import Literal
+class Client:
+    def Set(self, value: Literal[0, 1]) -> None:
+        """Допустимые значения value (KindEnum):
+        0 — FIRST: Первый
+        1 — SECOND: Второй
+        """
+        ...
+'''
+        self.installed = "FIRST = 0\nSECOND = FIRST | 1"
+
+    def check(self, *, stub=None, source=None, pages=None, cpp=None, installed=None, constants=""):
+        self.docs.write_text("\n".join(json.dumps(page) for page in (pages if pages is not None else [self.page])), encoding="utf-8")
+        self.metadata.write_text(json.dumps(cpp if cpp is not None else self.cpp), encoding="utf-8")
+        trees = {"constants": (ast.parse(installed if installed is not None else self.installed), ast.parse(constants)),
+                 "ksapi": (ast.parse(source if source is not None else self.source), ast.parse(stub if stub is not None else self.stub))}
+        errors = []
+        counts = check_enum_aliases(trees, self.docs, self.metadata, errors)
+        return counts, errors
+
+    def test_inline_without_alias_uses_exact_cpp_identity(self):
+        counts, errors = self.check()
+        self.assertEqual(errors, [])
+        self.assertEqual(counts, {"aliases": 0, "input_parameters": 1, "inline_input_parameters": 1})
+
+    def test_inline_same_enum_in_two_parameters_of_one_method(self):
+        source = self.source.replace("self, value)", "self, value, other)").replace("self.reference, value)", "self.reference, value, other)")
+        stub = self.stub.replace("value: Literal[0, 1]", "value: Literal[0, 1], other: Literal[0, 1]")
+        stub = stub.replace('        """\n', "\n        Допустимые значения other (KindEnum):\n        0 — FIRST: Первый\n        1 — SECOND: Второй\n        \"\"\"\n")
+        cpp = {**self.cpp, "parameters": [*self.cpp["parameters"], {"name": "other", "type_cpp": "KindEnum", "in": True}]}
+        counts, errors = self.check(source=source, stub=stub, cpp=cpp)
+        self.assertEqual(errors, [])
+        self.assertEqual(counts, {"aliases": 0, "input_parameters": 2, "inline_input_parameters": 2})
+
+    def test_inline_mapping_normalizes_sdk_links_and_escaped_pipes(self):
+        page = {**self.page, "content": "| FIRST | 0 | [Первый](<webhelp:first.html>) |\n| SECOND | 1 | Open\\|Save |"}
+        counts, errors = self.check(pages=[page], stub=self.stub.replace("Второй", "Open|Save"))
+        self.assertEqual(errors, [])
+        self.assertEqual(counts["inline_input_parameters"], 1)
+
+    def test_inline_rejects_missing_extra_wrong_and_bool_values(self):
+        for value in ("Literal[0]", "Literal[0, 1, 2]", "Literal[0, 2]", "Literal[False, 1]"):
+            with self.subTest(value=value):
+                errors = self.check(stub=self.stub.replace("Literal[0, 1]", value))[1]
+                self.assertIn("enum_values", [e["code"] for e in errors])
+
+    def test_inline_rejects_missing_or_wrong_parameter_mapping(self):
+        for before, after in (("Допустимые значения value (KindEnum):", ""),
+                              ("значения value", "значения other"), ("(KindEnum)", "(OtherEnum)"),
+                              ("1 — SECOND: Второй", ""), ("1 — SECOND", "2 — SECOND"),
+                              ("SECOND: Второй", "SECOND: Wrong"), ("1 — SECOND", "1 — WRONG"),
+                              ("SECOND: Второй", "SECOND: Второй wrong"),
+                              ("SECOND: Второй", "SECOND: Второй\n        2 — EXTRA: Wrong")):
+            with self.subTest(after=after):
+                errors = self.check(stub=self.stub.replace(before, after))[1]
+                self.assertIn("enum_mapping", [e["code"] for e in errors])
+
+    def test_inline_rejects_unsafe_tables_and_installed_drift(self):
+        for content, code in (("| FIRST | 0 | Первый |\n| SECOND | | Missing |", "enum_table"),
+                              ("| FIRST | 0 | Первый |\n| SECOND | 1 | 8 | Composite |", "enum_table"),
+                              ("| FIRST | 0 | Первый |\n| SECOND | 2 | Второй |", "enum_installed_values"),
+                              ("| FIRST | 0 | Первый |\n| SECOND | 1 | Флаг |", "enum_domain")):
+            with self.subTest(content=content):
+                errors = self.check(pages=[{**self.page, "content": content}])[1]
+                self.assertIn(code, [e["code"] for e in errors])
+        errors = self.check(installed="FIRST = 0")[1]
+        self.assertIn("enum_installed_values", [e["code"] for e in errors])
+
+    def test_inline_rejects_linked_open_usage_domain(self):
+        errors = self.check(pages=[self.page, {"content": "Комбинация [KindEnum](<webhelp:kind.html>)"}])[1]
+        self.assertIn("enum_domain", [e["code"] for e in errors])
+
+    def test_inline_rejects_ambiguous_table_identity(self):
+        errors = self.check(pages=[self.page, self.page])[1]
+        self.assertIn("enum_identity", [e["code"] for e in errors])
+
+    def test_inline_rejects_cpp_mismatch_output_and_missing_metadata(self):
+        for parameter in ({"type_cpp": "int32_t", "in": True},
+                          {"type_cpp": "OtherEnum", "in": True},
+                          {"type_cpp": "KindEnum", "in": False}):
+            with self.subTest(parameter=parameter):
+                cpp = {**self.cpp, "parameters": [self.cpp["parameters"][0], parameter]}
+                errors = self.check(cpp=cpp)[1]
+                self.assertIn("enum_binding", [e["code"] for e in errors])
+        self.assertIn("enum_binding", [e["code"] for e in self.check(cpp={})[1]])
+
+    def test_inline_identity_is_not_inferred_from_values_or_mapping(self):
+        # A different enum with identical values must use ITS metadata identity.
+        other = {**self.page, "title": "OtherEnum - Другой тип"}
+        cpp = {**self.cpp, "parameters": [self.cpp["parameters"][0], {"type_cpp": "OtherEnum", "in": True}]}
+        errors = self.check(pages=[self.page, other], cpp=cpp)[1]
+        self.assertIn("enum_mapping", [e["code"] for e in errors])
+
+    def test_inline_rejects_reassigned_transformed_or_conflicting_inputs(self):
+        for source in (self.source.replace("ksapi.Client_Set", "value = 1; ksapi.Client_Set"),
+                       self.source.replace("self.reference, value)", "self.reference, int(value))"),
+                       self.source + "; ksapi.Other(value)"):
+            with self.subTest(source=source):
+                self.assertIn("enum_binding", [e["code"] for e in self.check(source=source)[1]])
+
+    def test_shared_alias_and_inline_counts_include_both_kinds(self):
+        constants = '''from typing import Literal, TypeAlias
+SharedEnum: TypeAlias = Literal[0, 1]
+"""0 — FIRST: Первый
+1 — SECOND: Второй"""
+'''
+        source = self.source + "\n    def Read(self, value): ksapi.Client_Read(self.app, self.reference, value)\n    def Write(self, value): ksapi.Client_Read(self.app, self.reference, value)"
+        stub = self.stub + "    def Read(self, value: SharedEnum) -> None: ...\n    def Write(self, value: SharedEnum) -> None: ..."
+        stub = "from constants import SharedEnum\n" + stub
+        shared_cpp = {"name_c": "Client_Read", "parameters": [self.cpp["parameters"][0], {"type_cpp": "SharedEnum", "in": True}]}
+        counts, errors = self.check(source=source, stub=stub, constants=constants,
+                                    pages=[self.page, {**self.page, "title": "SharedEnum - Общий тип"}], cpp=[self.cpp, shared_cpp])
+        self.assertEqual(errors, [])
+        self.assertEqual(counts, {"aliases": 1, "input_parameters": 3, "inline_input_parameters": 1})
 
 
 class PortabilityAndFreshnessTests(unittest.TestCase):
@@ -258,6 +437,29 @@ class IntegrationTests(unittest.TestCase):
             self.assertEqual(result["positive"]["exit_code"], 0)
             self.assertEqual(len(result["negative"]), 7)
             self.assertTrue(all(r["rejected_at_client"] for r in result["negative"].values()))
+
+    def test_mypy_enum_clients_cover_alias_and_inline_document_type(self):
+        for annotation in ("DocumentTypeEnum", "Literal[1, 2, 3, 4, 5, 6, 7]"):
+            with self.subTest(annotation=annotation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                constants = '''from typing import Literal, TypeAlias
+DocumentTypeEnum: TypeAlias = Literal[1, 2, 3, 4, 5, 6, 7]
+class constants:
+    ksDocumentPart: Literal[4] = 4
+'''
+                if annotation.startswith("Literal"):
+                    constants = constants.replace("DocumentTypeEnum: TypeAlias = Literal[1, 2, 3, 4, 5, 6, 7]\n", "")
+                (root / "constants.pyi").write_text(constants, encoding="utf-8")
+                imports = "from constants import DocumentTypeEnum\n" if annotation == "DocumentTypeEnum" else "from typing import Literal\n"
+                stub = CONTROL_STUB.replace("class IDocuments: ...", f"class IDocuments:\n    def Add(self, documentType: {annotation}, visible: bool) -> None: ...")
+                (root / "ksapi.pyi").write_text(imports + stub, encoding="utf-8")
+                errors = []
+                result = run_mypy(root, DEFAULT_MYPY, errors, [])
+                self.assertEqual(errors, [], result)
+                self.assertEqual(set(result["enum_clients"]), {"named_constant", "numeric_literal", "invalid_value"})
+                self.assertEqual(result["enum_clients"]["named_constant"]["exit_code"], 0)
+                self.assertEqual(result["enum_clients"]["numeric_literal"]["exit_code"], 0)
+                self.assertEqual(result["enum_clients"]["invalid_value"]["exit_code"], 1)
 
     def test_wrapper_is_parsed_not_imported_and_all_files_inventoried(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -6,23 +6,29 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 import math
 from pathlib import Path
+from typing import TypeVar
 
 import ksapi
 from constants import constants as c
 from constants3d import constants as c3d
 
 
-def require(value, message):
+T = TypeVar("T")
+Bounds = tuple[float, float, float, float, float, float]
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
 @contextmanager
-def sketch_xoy(part, model):
+def sketch_xoy(part: ksapi.IPart, model: ksapi.IModelContainer) -> Iterator[tuple[ksapi.ISketch, ksapi.IDrawingContainer]]:
     sketch = require(model.GetSketchs().Add(), "Эскиз")
     sketch.SetPlane(require(part.GetDefaultObject(c3d.o3d_planeXOY), "XOY"))
     require(sketch.Update(), "Плоскость эскиза")
@@ -34,10 +40,10 @@ def sketch_xoy(part, model):
         require(sketch.EndEdit(), "Завершение эскиза")
 
 
-def feature_errors(part):
+def feature_errors(part: ksapi.IPart) -> list[tuple[str, int]]:
     errors, seen = [], set()
 
-    def visit(feature):
+    def visit(feature: ksapi.IFeature) -> None:
         if feature.reference in seen:
             return
         seen.add(feature.reference)
@@ -52,7 +58,7 @@ def feature_errors(part):
     return errors
 
 
-def vertical_corner_edges(part):
+def vertical_corner_edges(part: ksapi.IPart) -> list[ksapi.IEdge]:
     """Выбрать исходные четыре ребра по двум концам, не по порядку коллекции."""
     selected = []
     for obj in ksapi.IFeature(part).GetModelObjects([c3d.o3d_edge]):
@@ -72,7 +78,7 @@ def vertical_corner_edges(part):
     return selected
 
 
-def verify_rounds(part, radius):
+def verify_rounds(part: ksapi.IPart, radius: float) -> None:
     """Проверить радиус, положение и четверть цилиндра у каждого угла."""
     faces = [ksapi.IFace(obj) for obj in ksapi.IFeature(part).GetModelObjects([c3d.o3d_face])]
     cylinders = [face for face in faces if face.IsCylinder()]
@@ -95,7 +101,7 @@ def verify_rounds(part, radius):
             actual.pop(matches[0])
 
 
-def build(part, model):
+def build(part: ksapi.IPart, model: ksapi.IModelContainer) -> ksapi.IFillet:
     with sketch_xoy(part, model) as (profile, drawing):
         rectangle = require(drawing.GetRectangles().Add(), "Прямоугольник")
         rectangle.SetX(-30)
@@ -155,7 +161,7 @@ def validate(part):
     return bounds
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Новый файл .m3d; без него — временная деталь")
     args = parser.parse_args(argv)

@@ -1,0 +1,7 @@
+{
+  "stubPath": "skills/kompass-3d-skill/.cache/kompas-stubs",
+  "extraPaths": ["skills/kompass-3d-skill/.cache/kompas-stubs"],
+  "pythonVersion": "3.11",
+  "reportMissingModuleSource": "none",
+  "reportOptionalMemberAccess": "none"
+}

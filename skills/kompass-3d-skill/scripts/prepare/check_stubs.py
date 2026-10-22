@@ -16,6 +16,7 @@ import builtins
 import hashlib
 import json
 import os
+import operator
 import re
 import shutil
 import subprocess
@@ -262,12 +263,197 @@ def check_controls(tree: ast.Module, errors: list) -> int:
     return checked
 
 
+def check_enum_aliases(trees: dict, docs: Path, metadata: Path, errors: list) -> dict:
+    """Validate SDK aliases and inline Literals using tables, constants and C++ inputs."""
+    pages = [json.loads(line) for line in docs.read_text(encoding="utf-8").splitlines() if line.strip()]
+    enum_pages = {}
+    usage = {}
+    for page in pages:
+        for name in set(re.findall(r"\[([A-Za-z_]\w*)\]\(<webhelp:", page.get("content", ""))):
+            usage.setdefault(name, []).append(page.get("content", ""))
+        if page.get("section") != "Константы API":
+            continue
+        match = re.match(r"^([A-Za-z_]\w*)\s*(?:[-—–]|$)", page.get("title", ""))
+        if match:
+            enum_pages.setdefault(match.group(1), []).append(page)
+    aliases = {}
+    installed_modules = {}
+    for module in ("constants", "constants3d"):
+        if module not in trees:
+            continue
+        installed = {}
+        binary = {ast.BitOr: operator.or_, ast.BitAnd: operator.and_, ast.BitXor: operator.xor,
+                  ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+                  ast.LShift: operator.lshift, ast.RShift: operator.rshift}
+        unary = {ast.USub: operator.neg, ast.UAdd: operator.pos, ast.Invert: operator.invert}
+        def evaluate_constant(value):
+            if isinstance(value, ast.Constant) and type(value.value) is int:
+                return value.value
+            if isinstance(value, ast.Name):
+                return installed.get(value.id)
+            if isinstance(value, ast.UnaryOp) and type(value.op) in unary:
+                operand = evaluate_constant(value.operand)
+                return unary[type(value.op)](operand) if operand is not None else None
+            if isinstance(value, ast.BinOp) and type(value.op) in binary:
+                left, right = evaluate_constant(value.left), evaluate_constant(value.right)
+                if left is not None and right is not None:
+                    if isinstance(value.op, (ast.LShift, ast.RShift)) and not 0 <= right <= 64:
+                        return None
+                    return binary[type(value.op)](left, right)
+            return None
+        for assignment in ast.walk(trees[module][0]):
+            if isinstance(assignment, (ast.Assign, ast.AnnAssign)):
+                value = evaluate_constant(assignment.value)
+                targets = assignment.targets if isinstance(assignment, ast.Assign) else [assignment.target]
+                if value is not None:
+                    installed.update({target.id: value for target in targets if isinstance(target, ast.Name)})
+        installed_modules[module] = installed
+
+    tables = {}
+    def table(name, module=None):
+        key = module, name
+        if key in tables:
+            return tables[key]
+        matches = enum_pages.get(name, [])
+        if len(matches) != 1:
+            issue(errors, "enum_identity", name, "must identify one exact SDK enum table")
+            tables[key] = None
+            return None
+        rows = []
+        descriptions = {}
+        malformed = False
+        for line in matches[0]["content"].splitlines():
+            cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", line.strip())[1:-1]]
+            if not line.lstrip().startswith("|"):
+                continue
+            if cells and re.fullmatch(r"`?[A-Za-z_]\w*`?", cells[0]) and cells[0] not in ("Name", "Column"):
+                if len(cells) != 3:
+                    malformed = True
+                    continue
+                number = cells[1].strip("` ").replace("−", "-")
+                if not re.fullmatch(r"[+-]?(?:0[xX][0-9a-fA-F]+|\d+)", number) or not cells[2]:
+                    malformed = True
+                    continue
+                member = cells[0].strip("`")
+                if member in descriptions and descriptions[member] != cells[2]:
+                    malformed = True
+                descriptions[member] = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", cells[2]).replace(r"\|", "|").strip()
+                rows.append((member, int(number, 16 if "x" in number.lower() else 10)))
+            elif len(cells) > 1 and not cells[0] and re.fullmatch(r"[+-]?(?:0[xX][0-9a-fA-F]+|\d+)", cells[1]):
+                malformed = True
+        if malformed or not rows or len(dict(rows)) != len(set(rows)):
+            issue(errors, "enum_table", name, "incomplete, conflicting or multi-column SDK table")
+        evidence = matches[0].get("title", "") + "\n" + matches[0]["content"]
+        evidence += "\n" + "\n".join(usage.get(name, []))
+        values = [value for _, value in rows if value > 0]
+        unsafe = bool(re.search(r"flag|mask|флаг|маск|побитов|битов|комбинац|сочетан|логическ.{0,25}(?:или|or)|произвольн|пользовательск.{0,35}(?:значени|тип|код)|и\s+выше|и\s+более", evidence, re.I))
+        unsafe |= len(set(values)) >= 3 and all(value & (value - 1) == 0 for value in values)
+        candidates = [installed_modules[module]] if module else installed_modules.values()
+        if not any(all(installed.get(member) == value for member, value in rows) for installed in candidates):
+            issue(errors, "enum_installed_values", name, "SDK table disagrees with installed constant values")
+        tables[key] = rows, descriptions, unsafe
+        return tables[key]
+
+    def validate(name, annotation, text, module=None, parameter=None):
+        data = table(name, module)
+        if data is None:
+            return
+        rows, descriptions, unsafe = data
+        if expression(annotation) != "int":
+            if unsafe:
+                issue(errors, "enum_domain", name, "flags or open domains must retain int")
+            expected = sorted({value for _, value in rows})
+            expected_ast = ast.parse("Literal[" + ", ".join(map(str, expected)) + "]", mode="eval").body if expected else None
+            if not expected or canonical(annotation) != canonical(expected_ast):
+                issue(errors, "enum_values", name, "Literal values differ from the SDK table")
+        mapping = "\n".join(f"{value} — {member}: {descriptions[member]}" for member, value in rows)
+        if parameter is not None:
+            header = f"Допустимые значения {parameter} ({name}):\n"
+            blocks = re.findall(r"(?m)^" + re.escape(header) + r"((?:[^\n]+\n?)+)", text)
+            correct_mapping = blocks == [mapping] or blocks == [mapping + "\n"]
+        else:
+            correct_mapping = all(line in text.splitlines() for line in mapping.splitlines())
+        if not correct_mapping:
+            issue(errors, "enum_mapping", name, f"missing or incorrect SDK mapping for {parameter or name}")
+
+    for module in installed_modules:
+        body = trees[module][1].body
+        for index, node in enumerate(body):
+            if not isinstance(node, ast.AnnAssign) or expression(node.annotation) != "TypeAlias":
+                continue
+            name = expression(node.target)
+            doc = body[index + 1] if index + 1 < len(body) else None
+            text = doc.value.value if isinstance(doc, ast.Expr) and isinstance(doc.value, ast.Constant) and isinstance(doc.value.value, str) else ""
+            validate(name, node.value, text, module)
+            aliases[module, name] = node.value
+    if "ksapi" not in trees:
+        return {"aliases": len(aliases), "input_parameters": 0, "inline_input_parameters": 0}
+    cpp = {}
+    def collect(value):
+        if isinstance(value, dict):
+            if "name_c" in value:
+                cpp[value["name_c"]] = value
+            for child in value.values():
+                collect(child)
+        elif isinstance(value, list):
+            for child in value:
+                collect(child)
+    collect(json.loads(metadata.read_text(encoding="utf-8-sig")))
+    source, stub = trees["ksapi"]
+    _, source_methods = inventory(source)
+    _, stub_methods = inventory(stub)
+    imported = {alias.asname or alias.name: (node.module, alias.name)
+                for node in stub.body if isinstance(node, ast.ImportFrom)
+                for alias in node.names if (node.module, alias.name) in aliases}
+    checked = inline_checked = 0
+    for symbol, method in stub_methods.items():
+        native_method = source_methods.get(symbol)
+        if native_method is None:
+            continue
+        for argument in [*method.args.posonlyargs, *method.args.args, *method.args.kwonlyargs]:
+            name = expression(argument.annotation)
+            inline = isinstance(argument.annotation, ast.Subscript) and expression(argument.annotation.value) == "Literal"
+            if name not in imported and not inline:
+                continue
+            enum = imported[name][1] if not inline else None
+            if not inline and expression(aliases[imported[name]]) == "int":
+                issue(errors, "enum_binding", symbol, "open/flag aliases must not narrow parameters")
+            evidence = []
+            reassigned = any(isinstance(node, ast.Name) and node.id == argument.arg
+                             and isinstance(node.ctx, (ast.Store, ast.Del)) for node in ast.walk(native_method))
+            for call in ast.walk(native_method):
+                if not isinstance(call, ast.Call) or not expression(call.func).startswith("ksapi."):
+                    continue
+                parameters_cpp = cpp.get(expression(call.func)[6:], {}).get("parameters", [])
+                offset = len(call.args) - len(parameters_cpp)
+                for index, value in enumerate(call.args):
+                    if not any(isinstance(node, ast.Name) and node.id == argument.arg for node in ast.walk(value)):
+                        continue
+                    parameter = parameters_cpp[index - offset] if offset >= 0 and offset <= index < len(call.args) else {}
+                    direct = isinstance(value, ast.Name) and value.id == argument.arg
+                    input_cpp = parameter.get("in") in (True, "True", "true")
+                    evidence.append(parameter.get("type_cpp") if direct and input_cpp and not reassigned else None)
+                if any(isinstance(node, ast.Name) and node.id == argument.arg for keyword in call.keywords for node in ast.walk(keyword.value)):
+                    evidence.append(None)
+            if inline:
+                # Identity comes ONLY from direct C++ input metadata, never the
+                # method mapping, matching integer values, or generator reports.
+                enum = evidence[0] if evidence else None
+                inline_checked += 1
+            if not enum or (inline and enum not in enum_pages) or not evidence or any(value != enum for value in evidence):
+                issue(errors, "enum_binding", symbol, f"{argument.arg}: no consistent direct SDK input evidence for {enum or 'an enum'}")
+            elif inline:
+                validate(enum, argument.annotation, ast.get_docstring(method) or "", parameter=argument.arg)
+            checked += 1
+    return {"aliases": len(aliases), "input_parameters": checked, "inline_input_parameters": inline_checked}
+
+
 def check_documentation(tree: ast.Module, docs: Path, errors: list) -> int:
     if not docs.is_file():
         issue(errors, "docs_missing", str(docs), "run scripts/prepare/prepare_docs.py first")
         return 0
     pages = [json.loads(line) for line in docs.read_text(encoding="utf-8").splitlines() if line.strip()]
-    _, methods = inventory(tree)
+    classes, methods = inventory(tree)
     checked = 0
     for symbol in CONTROL_TYPES:
         # GetKompas is an exported global helper, not a native interface page.
@@ -282,14 +468,31 @@ def check_documentation(tree: ast.Module, docs: Path, errors: list) -> int:
         node = methods.get(symbol)
         text = ast.get_docstring(node) or "" if node else ""
         page = matches[0]
-        source = str(page["source_html"])
         content = page.get("content", "")
-        # Inspect the actual method docstring, not an unrelated occurrence in
-        # the file. Exact native-page marker disambiguates API7 same-name pages.
-        if f"Native documentation: {source}" not in text or "Local documentation:" not in text:
-            issue(errors, "docs_mismatch", symbol, f"missing exact native and local documentation links for {source}")
-        elif isinstance(content, str) and content.strip() and content.strip() not in text:
-            issue(errors, "docs_mismatch", symbol, "native page content is not attached to the correct method")
+        owner = symbol.split(".")[0]
+        class_text = ast.get_docstring(classes[owner]) or "" if owner in classes else ""
+        links = re.findall(r"(?m)^- \[[^\]]+\]\(([^\n)]+)\)", class_text)
+        if "Источники SDK:" not in class_text or not links:
+            issue(errors, "docs_mismatch", symbol, "missing class-level SDK sources")
+        elif page.get("markdown_path"):
+            expected = Path(str(page["markdown_path"]))
+            if not any(Path(href.split("#", 1)[0]).name == expected.name for href in links):
+                issue(errors, "docs_mismatch", symbol, "class sources omit the native SDK document")
+        if "Источник SDK:" in text or "Источники SDK:" in text:
+            issue(errors, "docs_mismatch", symbol, "SDK sources must be listed on the class, not the method")
+        if isinstance(content, str):
+            # The stub intentionally omits C++ declarations and WebHelp menus.
+            # Independently check the remaining SDK paragraphs, not byte-for-byte
+            # inclusion of the full page or imports from the rendering code.
+            sections = re.split(r"(?m)^(Синтаксис KsAPI:|Иерархия:|Подразделы:|Входные параметры:|Возвращаемое значение:|Примечание:|Определенные типы:|Описание:|Значение свойства:)\s*$", content)
+            retained = [sections[0]]
+            retained.extend(sections[i] + "\n\n" + sections[i + 1] for i in range(1, len(sections), 2)
+                            if sections[i] not in {"Синтаксис KsAPI:", "Иерархия:", "Подразделы:"})
+            paragraphs = [paragraph.strip() for section in retained
+                          for paragraph in re.split(r"\n\s*\n", section)
+                          if paragraph.strip() and not re.fullmatch(r"\[Интерфейс\.{3}\]\(<[^>]+>\)", paragraph.strip())]
+            if any(paragraph not in text for paragraph in paragraphs):
+                issue(errors, "docs_mismatch", symbol, "native SDK explanation is missing from the method docstring")
         checked += 1
     return checked
 
@@ -454,7 +657,28 @@ def run_mypy(stubs: Path, executable: Path | str, errors: list, warnings: list) 
             negatives[name] = {**outcome, "rejected_at_client": rejected}
             if not rejected:
                 issue(errors, "mypy_negative", name, "invalid program was not rejected at its own offending statement")
-        return {"available": True, "executable": str(executable), "full": full, "positive": positive_result, "negative": negatives}
+        enum_clients = {}
+        ksapi_path = stubs / "ksapi.pyi"
+        if ksapi_path.is_file():
+            _, methods = inventory(ast.parse(ksapi_path.read_text(encoding="utf-8")))
+            add = methods.get("IDocuments.Add")
+            if add and any(a.arg == "documentType" and (expression(a.annotation) == "DocumentTypeEnum"
+                           or isinstance(a.annotation, ast.Subscript) and expression(a.annotation.value) == "Literal")
+                           for a in add.args.args):
+                for name, value, valid in (("named_constant", "constants.ksDocumentPart", True),
+                                           ("numeric_literal", "4", True), ("invalid_value", "12345", False)):
+                    client = temp / f"enum_{name}.py"
+                    client.write_text("from constants import constants\nfrom ksapi import IDocuments\n"
+                                      "def check(documents: IDocuments) -> None:\n"
+                                      f"    documents.Add({value}, True)\n", encoding="utf-8")
+                    outcome = run([str(client)], client_options)
+                    accepted = outcome["exit_code"] == 0
+                    rejected = outcome["exit_code"] == 1 and f"{client.name}:4:" in outcome["stdout"]
+                    enum_clients[name] = outcome
+                    if (valid and not accepted) or (not valid and not rejected):
+                        issue(errors, "mypy_enum", name, "enum client contract check failed")
+        return {"available": True, "executable": str(executable), "full": full,
+                "positive": positive_result, "negative": negatives, "enum_clients": enum_clients}
 
 
 def file_fingerprint(path: Path) -> dict:
@@ -520,6 +744,8 @@ def verify(install: Path, stubs: Path, docs: Path, metadata: Path, mypy: Path | 
         report["control_annotations_checked"] = check_controls(stub, errors)
         report["control_documentation_checked"] = check_documentation(stub, docs, errors)
         if metadata.is_file():
+            if docs.is_file():
+                report["enum_checks"] = check_enum_aliases(trees, docs, metadata, errors)
             report["native_marshalling_review"] = native_review(source, stub, metadata)
         else:
             issue(errors, "metadata_missing", str(metadata), "native C++ evidence cannot be reviewed")

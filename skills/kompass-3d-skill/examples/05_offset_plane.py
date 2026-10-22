@@ -9,9 +9,11 @@ Attach to an existing API session. Without --output, validate then discard.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 import math
 from pathlib import Path
+from typing import TypeVar
 
 import ksapi
 from constants import constants as c
@@ -21,13 +23,19 @@ from constants3d import constants as c3d
 EXPECTED = (-5.0, -5.0, 15.0, 5.0, 5.0, 20.0)
 
 
-def require(value, message):
+T = TypeVar("T")
+Bounds = tuple[float, float, float, float, float, float]
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
-def new_part(app, owned):
+def new_part(
+    app: ksapi.IApplication, owned: list[ksapi.IKompasDocument],
+) -> tuple[ksapi.IKompasDocument, ksapi.IPart, ksapi.IModelContainer]:
     doc = require(app.GetDocuments().AddWithDefaultSettings(c.ksDocumentPart, True), "New part")
     owned.append(doc)  # Register before accessing or modifying the document.
     part = require(ksapi.IKompasDocument3D(doc).GetTopPart(), "Top part")
@@ -36,7 +44,9 @@ def new_part(app, owned):
 
 
 @contextmanager
-def edit_sketch(model, plane):
+def edit_sketch(
+    model: ksapi.IModelContainer, plane: ksapi.IModelObject,
+) -> Iterator[tuple[ksapi.ISketch, ksapi.IDrawingContainer]]:
     sketch = require(model.GetSketchs().Add(), "Sketch")
     sketch.SetPlane(plane)
     require(sketch.Update(), "Sketch plane")
@@ -48,7 +58,7 @@ def edit_sketch(model, plane):
         require(sketch.EndEdit(), "End sketch")
 
 
-def build(part, model):
+def build(part: ksapi.IPart, model: ksapi.IModelContainer) -> None:
     auxiliary = require(ksapi.IAuxiliaryGeomContainer(part), "Auxiliary geometry")
     plane = require(auxiliary.GetPlanes3D().Add(c3d.o3d_planeOffset), "Offset plane")
     offset = require(ksapi.IPlane3DByOffset(plane), "Offset-plane interface")
@@ -70,12 +80,12 @@ def build(part, model):
     require(extrusion.Update(), "Build cylinder")
 
 
-def validate(part):
+def validate(part: ksapi.IPart) -> Bounds:
     require(part.RebuildModel(True), "Rebuild part")
     root = require(ksapi.IFeature(part), "Part feature")
     errors, seen = [], set()
 
-    def visit(feature, path):
+    def visit(feature: ksapi.IFeature, path: Sequence[str]) -> None:
         if feature.reference in seen:
             return
         seen.add(feature.reference)
@@ -100,7 +110,7 @@ def validate(part):
     return bounds
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Save a new .m3d file after validation")
     args = parser.parse_args(argv)

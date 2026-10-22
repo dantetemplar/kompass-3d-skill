@@ -11,9 +11,11 @@ Native KsAPI Linux v25. Полость: X=±28, Y=±18, дно Z=2.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 import math
 from pathlib import Path
+from typing import TypeVar
 
 import ksapi
 from constants import constants as c
@@ -23,20 +25,25 @@ from constants3d import constants as c3d
 TOLERANCE = 1e-5
 
 
-def require(value, message):
+T = TypeVar("T")
+Point3D = tuple[float, float, float]
+Bounds = tuple[float, float, float, float, float, float]
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
-def close_values(actual, expected, tolerance=TOLERANCE):
+def close_values(actual: Sequence[float], expected: Sequence[float], tolerance: float = TOLERANCE) -> bool:
     return len(actual) == len(expected) and all(
         math.isfinite(a) and abs(a - b) <= tolerance for a, b in zip(actual, expected)
     )
 
 
 @contextmanager
-def sketch_xoy(part, model):
+def sketch_xoy(part: ksapi.IPart, model: ksapi.IModelContainer) -> Iterator[tuple[ksapi.ISketch, ksapi.IDrawingContainer]]:
     sketch = require(model.GetSketchs().Add(), "Эскиз")
     sketch.SetPlane(require(part.GetDefaultObject(c3d.o3d_planeXOY), "Плоскость XOY"))
     require(sketch.Update(), "Плоскость эскиза")
@@ -48,7 +55,7 @@ def sketch_xoy(part, model):
         require(sketch.EndEdit(), "Завершение эскиза")
 
 
-def rectangle(drawing, x, y, width, height):
+def rectangle(drawing: ksapi.IDrawingContainer, x: float, y: float, width: float, height: float) -> ksapi.IRectangle:
     obj = require(drawing.GetRectangles().Add(), "Прямоугольник")
     obj.SetX(x)
     obj.SetY(y)
@@ -58,7 +65,7 @@ def rectangle(drawing, x, y, width, height):
     return obj
 
 
-def edge_points(edge):
+def edge_points(edge: ksapi.IEdge) -> tuple[Point3D, ...]:
     require(edge.IsStraight(), "Ожидалось прямое ребро коробки")
     points = []
     for start in (True, False):
@@ -71,7 +78,7 @@ def edge_points(edge):
     return tuple(points)
 
 
-def edges_bounds(edges):
+def edges_bounds(edges: Sequence[ksapi.IEdge]) -> tuple[float, ...]:
     points = [point for edge in edges for point in edge_points(edge)]
     require(points, "Граница грани пуста")
     return tuple(min(p[i] for p in points) for i in range(3)) + tuple(
@@ -79,7 +86,7 @@ def edges_bounds(edges):
     )
 
 
-def planar_faces(part):
+def planar_faces(part: ksapi.IPart) -> list[tuple[ksapi.IFace, tuple[float, ...]]]:
     """Читать конечные грани детали заново после изменения топологии."""
     feature = require(ksapi.IFeature(part), "Топология детали")
     result = []
@@ -91,7 +98,7 @@ def planar_faces(part):
     return result
 
 
-def verify_rectangle_edges(edges, bounds):
+def verify_rectangle_edges(edges: Sequence[ksapi.IEdge], bounds: Sequence[float]) -> None:
     """Проверить четыре стороны именно заданного прямоугольника в 3D."""
     axes = [i for i in range(3) if abs(bounds[i + 3] - bounds[i]) > TOLERANCE]
     require(len(axes) == 2, f"Не прямоугольная плоская область: {bounds}")
@@ -114,7 +121,7 @@ def verify_rectangle_edges(edges, bounds):
     require(not expected, f"Неполный прямоугольник: {bounds}")
 
 
-def verify_rectangle_face(face, bounds):
+def verify_rectangle_face(face: ksapi.IFace, bounds: Sequence[float]) -> None:
     loops = face.GetLoops()
     require(len(loops) == 1, f"Лишние отверстия в прямоугольной грани: {bounds}")
     verify_rectangle_edges(loops[0].GetEdges(), bounds)
@@ -124,7 +131,7 @@ def verify_rectangle_face(face, bounds):
     require(close_values((area,), (math.prod(spans),)), f"Площадь грани {bounds}: {area}")
 
 
-def build(part, model):
+def build(part: ksapi.IPart, model: ksapi.IModelContainer) -> ksapi.IShell:
     """Выдавить блок и удалить верхнюю грань нативной операцией IShell."""
     with sketch_xoy(part, model) as (profile, drawing):
         rectangle(drawing, -30, -20, 60, 40)
@@ -152,11 +159,11 @@ def build(part, model):
     return shell
 
 
-def feature_errors(part):
+def feature_errors(part: ksapi.IPart) -> list[tuple[list[str], int]]:
     """Проверить все ветви дерева, включая скрытые эскизы."""
     errors, seen = [], set()
 
-    def visit(feature, path):
+    def visit(feature: ksapi.IFeature, path: Sequence[str]) -> None:
         if feature.reference in seen:
             return
         seen.add(feature.reference)
@@ -172,7 +179,7 @@ def feature_errors(part):
     return errors
 
 
-def verify_cavity(part):
+def verify_cavity(part: ksapi.IPart) -> None:
     """Проверить расположение полости и два контура открытого верхнего ободка."""
     remaining = planar_faces(part)
     # Пять внешних граней и пять внутренних: не только число, но координаты,
@@ -235,7 +242,7 @@ def validate(part):
     return bounds
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Новый файл .m3d; без него — временная деталь")
     args = parser.parse_args(argv)

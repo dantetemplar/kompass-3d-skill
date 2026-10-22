@@ -10,30 +10,40 @@ rear surface with the 28 mm deep base. The projections do not show an overall
 mirror-symmetric part: the front 8 mm ledge is not repeated at the rear.
 No preview, dimension perturbation, or save/reopen qualification is performed.
 """
+from __future__ import annotations
+
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 import argparse
 import json
 import math
 from pathlib import Path
+from typing import TypeVar
 
 import ksapi
-from constants import constants as c
+from constants import constants as c, ksConstraintTypeEnum, ksLineDimensionOrientationEnum
 from constants3d import constants as c3d
 
 
-def require(value, message):
+T = TypeVar("T")
+DimensionT = TypeVar("DimensionT", bound=ksapi.IDrawingObject)
+Point2 = tuple[float, float]
+DimensionSpec = tuple[str, Point2, Point2, Point2, bool, float]
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
-def absent(path):
+def absent(path: Path) -> None:
     if path.exists() or path.is_symlink():
         raise FileExistsError(f"Refusing to overwrite: {path}")
 
 
 @contextmanager
-def edit(sketch):
+def edit(sketch: ksapi.ISketch) -> Iterator[ksapi.IView]:
     fragment = require(sketch.BeginEdit(False), "BeginEdit")
     try:
         fragment.SetParametricMode(True)
@@ -46,7 +56,7 @@ def edit(sketch):
     print(f"Fully defined: {sketch.GetName()}", flush=True)
 
 
-def constraint(obj, kind, partners=(), index=None, partner_index=None, name=None, value=None):
+def constraint(obj: ksapi.IDrawingObject, kind: ksConstraintTypeEnum, partners: Sequence[ksapi.IDrawingObject] = (), index: int | None = None, partner_index: int | None = None, name: str | None = None, value: float | None = None) -> ksapi.IParametricConstraint:
     item = require(obj.NewConstraint(), "NewConstraint")
     item.SetConstraintType(kind)
     if partners:
@@ -63,13 +73,13 @@ def constraint(obj, kind, partners=(), index=None, partner_index=None, name=None
     return item
 
 
-def driving(dim, name, value):
+def driving(dim: DimensionT, name: str, value: float) -> DimensionT:
     constraint(dim, c.ksCFixedDim)
     constraint(dim, c.ksCDimWithVariable, name=name, value=value)
     return dim
 
 
-def linear(symbols, points, orientation, name, value):
+def linear(symbols: ksapi.ISymbols2DContainer, points: Sequence[Point2], orientation: ksLineDimensionOrientationEnum, name: str, value: float) -> ksapi.ILineDimension:
     dim = require(symbols.GetLineDimensions().Add(), "Linear dimension")
     (x1, y1), (x2, y2), (x3, y3) = points
     dim.SetX1(x1)
@@ -84,7 +94,7 @@ def linear(symbols, points, orientation, name, value):
     return driving(dim, name, value)
 
 
-def profile(part, model, name, vertices, dims, prefix):
+def profile(part: ksapi.IPart, model: ksapi.IModelContainer, name: str, vertices: list[Point2], dims: Sequence[DimensionSpec], prefix: str) -> ksapi.ISketch:
     sketch = require(model.GetSketchs().Add(), "Add sketch")
     sketch.SetName(name)
     sketch.SetPlane(require(part.GetDefaultObject(c3d.o3d_planeXOY), "XOY plane"))
@@ -127,7 +137,7 @@ def profile(part, model, name, vertices, dims, prefix):
     return sketch
 
 
-def boss(model, sketch, name, depth):
+def boss(model: ksapi.IModelContainer, sketch: ksapi.ISketch, name: str, depth: float) -> ksapi.IExtrusion:
     operation = require(model.GetExtrusions().Add(c3d.o3d_bossExtrusion), "Boss extrusion")
     operation.SetName(name)
     operation.SetProfiles([sketch])
@@ -137,18 +147,18 @@ def boss(model, sketch, name, depth):
     return operation
 
 
-def variable(sketch, name):
+def variable(sketch: ksapi.ISketch, name: str) -> ksapi.IVariable:
     return require(ksapi.IFeature(sketch).GetVariableByName(False, True, name), f"Native variable: {name}")
 
 
-def check(part):
+def check(part: ksapi.IPart) -> float:
     require(part.RebuildModel(True), "RebuildModel")
     root = require(ksapi.IFeature(part), "Part feature")
     bodies = root.GetResultBodies()
     require(len(bodies) == 1 and bodies[0].IsSolid(), "Expected one solid")
     errors, visited = [], set()
 
-    def visit(feature):
+    def visit(feature: ksapi.IFeature) -> None:
         if feature.reference in visited:
             return
         visited.add(feature.reference)
@@ -174,7 +184,7 @@ def check(part):
     return volume
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path(__file__).with_suffix(".m3d"))
     args = parser.parse_args()

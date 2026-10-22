@@ -9,7 +9,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from emit import Documentation, NATIVE_SECTION, emit_native, validate_types
+from emit import (
+    Documentation,
+    NATIVE_SECTION,
+    doc_literal,
+    emit_constants,
+    emit_native,
+    merge_com_fallback,
+    semantic_documentation,
+    validate_types,
+)
 from native import NativeModel
 from prepare_stubs import generate
 
@@ -142,7 +151,17 @@ class NativeTests(unittest.TestCase):
         self.assertNotIn("WRONG COM", text)
         self.assertIn("@property", text)
         self.assertIn("def Handler(callback: Callable[[int], bool]) -> CFuncPtr", text)
-        self.assertIn("ksapi_isketch_beginedit.html", text)
+        classes = {c.name: c for c in tree.body if isinstance(c, ast.ClassDef)}
+        for name in ("ISketch", "Child"):
+            class_doc = ast.get_docstring(classes[name]) or ""
+            self.assertIn("Источники SDK:\n- [ISketch](", class_doc)
+            self.assertNotIn("переходить по ссылкам", class_doc)
+            self.assertNotIn("описания включены", class_doc)
+            self.assertIn("[ISketch](", class_doc)
+            self.assertEqual(class_doc.count("- ["), 1)
+            for method in classes[name].body:
+                if isinstance(method, ast.FunctionDef):
+                    self.assertNotIn("Источник", ast.get_docstring(method) or "")
         self.assertIn("VALUE: Literal[42] = 42", (self.root / "out/constants.pyi").read_text())
         self.assertIn("NEGATIVE: Literal[-42] = -42", (self.root / "out/constants.pyi").read_text())
         self.assertIn("COMBINED: int = VALUE | 8", (self.root / "out/constants.pyi").read_text())
@@ -167,22 +186,120 @@ def ReferenceInput(target: ILoop | None):
         model = self.model()
         docs = Documentation(self.docs)
         text = docs.text("ISketch.GetPoint3D", model, self.root / "out/ksapi.pyi", model.methods["ISketch.GetPoint3D"])
-        self.assertIn("- xIn: float; required", text)
-        self.assertIn("- xOut: float; required", text)
-        self.assertIn("SDK output parameter xOut", text)
-        self.assertIn("initializer supplied by the caller", text)
-        self.assertIn("ctypes.c_double", text)
-        self.assertIn("Python return expression(s): (res, x.value, y.value, z.value)", text)
+        self.assertIn("xOut, yOut, zOut: initial value for an SDK output parameter", text)
+        self.assertIn("the caller must supply it", text)
+        self.assertIn("Returns: (status, xOut, yOut, zOut).", text)
+        self.assertNotIn("xIn:", text)
+        self.assertNotIn("ctypes.c_double", text)
+        self.assertNotIn("return expression", text)
         text = docs.text("IExtrusion.SetProfiles", model, self.root / "out/ksapi.pyi", model.methods["IExtrusion.SetProfiles"])
-        self.assertIn("profiles: list[ILoop | None]", text)
-        self.assertIn("converted by ToObjectReferenceVector", text)
-        self.assertIn("skips None elements rather than inserting null handles", text)
-        self.assertIn("does not infer semantic validity", text)
+        self.assertIn("profiles: None elements are skipped, not passed as null handles", text)
+        self.assertNotIn("list[ILoop", text)
+        self.assertNotIn("semantic validity", text)
         reference = docs.text("ReferenceInput", model, self.root / "out/ksapi.pyi", model.methods["ReferenceInput"])
-        self.assertIn("GetReference converts None to native handle 0", reference)
+        self.assertIn("None is passed as native handle 0", reference)
         encoded = docs.text("Encoded", model, self.root / "out/ksapi.pyi", model.methods["Encoded"])
-        self.assertIn("text: str; required", encoded)
-        self.assertIn("encoded to bytes with 'utf-8'", encoded)
+        self.assertIn("text: encoded to bytes with 'utf-8'", encoded)
+
+    def test_simple_method_docstring_contains_no_generated_chatter(self):
+        page = {"id": "end", "title": "GetReference - Получить ссылку",
+                "symbol": "IApplication.GetReference", "section": NATIVE_SECTION,
+                "source_html": "ksapi_iapplication_getreference.html",
+                "content": "[Интерфейс...](<webhelp:ksapi_iapplication.html>)\n\n"
+                           "Синтаксис KsAPI:\n\nuint64_t GetReference()\n\nПодразделы:\n\n(отсутствуют)"}
+        self.docs.write_text(json.dumps(page))
+        model = self.model()
+        text = Documentation(self.docs).text("IApplication.GetReference", model,
+                                             self.root / "out/ksapi.pyi", model.methods["IApplication.GetReference"])
+        self.assertEqual(text, "Получить ссылку")
+        self.assertNotIn("Local documentation:", text)
+        self.assertNotIn("Native documentation:", text)
+        for noise in ("Python return", "Python arguments", "Python source", "Native symbols",
+                      "Units:", "Подразделы", "Синтаксис", "Интерфейс...", "return expression"):
+            self.assertNotIn(noise, text)
+        # An unmatched trivial wrapper does not acquire an invented docstring.
+        self.assertEqual(Documentation(self.docs).text("Unconfigured", model,
+                         self.root / "out/ksapi.pyi", model.methods["Unconfigured"]), "")
+
+    def test_semantic_docs_keep_parameters_notes_examples_units_and_tables(self):
+        useful = ("Входные параметры:\n\n| name | meaning |\n| --- | --- |\n"
+                  "| angle | угол в градусах |\n\nВозвращаемое значение:\n\nУспешность\n\n"
+                  "Примечание:\n\nНе вызывать во время редактирования.\n\n"
+                  "```cpp\n    call();\n\n\n    // Подразделы:\n```\n\n"
+                  "Особые случаи:\n\nОписание неизвестного генератору раздела.")
+        content = ("[Интерфейс...](<webhelp:owner.html>)\n\nСинтаксис KsAPI:\n\n"
+                   "void Method(double angle)\n\n" + useful + "\n\nПодразделы:\n\n(отсутствуют)")
+        result = semantic_documentation(content)
+        self.assertIn("угол в градусах", result)
+        self.assertIn("Не вызывать во время редактирования.", result)
+        self.assertIn("Особые случаи:\n\nОписание неизвестного генератору раздела.", result)
+        self.assertIn("    call();\n\n\n    // Подразделы:", result)
+        self.assertNotIn("void Method", result)
+        self.assertNotIn("(отсутствуют)", result)
+        self.assertNotIn("Интерфейс...", result)
+        self.assertEqual(semantic_documentation("Синтаксис KsAPI:\n\nvoid Method()\n\nОсобые случаи:\n\nKeep this."),
+                         "Особые случаи:\n\nKeep this.")
+
+    def test_com_fallback_fills_missing_return_and_skips_syntax(self):
+        native = ("[Интерфейс...](<webhelp:ksapi_itext.html>)\n\nСинтаксис KsAPI:\n\n"
+                  "bool Edit(WindowHandle windowHandle)\n\nПодразделы:\n\n(отсутствуют)")
+        com = ("[Интерфейс...](<webhelp:itext.html>)\n\nСинтаксис Automation:\n\n"
+               "BOOL Edit( OLE_HANDLE HWnd );\n\nСинтаксис COM:\n\n"
+               "HRESULT Edit( OLE_HANDLE HWnd, BOOL * Result );\n\n"
+               "Возвращаемое значение:\n\n"
+               "| Column 1 | Column 2 |\n| --- | --- |\n"
+               "| TRUE | - в случае изменения текста, |\n"
+               "| FALSE | - в случае отмены. |\n\n"
+               "Входные параметры:\n\n| HWnd | window |\n\n"
+               "Подразделы:\n\n(отсутствуют)")
+        text, borrowed = merge_com_fallback(native, com)
+        self.assertEqual(borrowed, ["Возвращаемое значение:"])
+        self.assertIn("в случае изменения текста", text)
+        self.assertIn("в случае отмены", text)
+        self.assertNotIn("OLE_HANDLE", text)
+        self.assertNotIn("Синтаксис", text)
+        self.assertNotIn("HWnd", text)
+        # Native already documents the return — keep it, ignore COM.
+        native_full = native.replace("Подразделы:", "Возвращаемое значение:\n\nУспешность\n\nПодразделы:")
+        kept, borrowed = merge_com_fallback(native_full, com)
+        self.assertEqual(borrowed, [])
+        self.assertIn("Успешность", kept)
+        self.assertNotIn("изменения текста", kept)
+
+    def test_com_fallback_applied_in_documentation_text(self):
+        pages = [
+            {"id": "ksapi_itext_edit", "title": "Edit - Редактировать в окне",
+             "symbol": "IText.Edit", "section": NATIVE_SECTION,
+             "source_html": "ksapi_itext_edit.html", "title_path": ["IText", "Edit"],
+             "content": "Синтаксис KsAPI:\n\nbool Edit(WindowHandle windowHandle)\n\nПодразделы:\n\n(отсутствуют)"},
+            {"id": "itext_edit", "title": "Edit - Редактировать в окне",
+             "symbol": "IText.Edit", "section": "API интерфейсов. Версия 7",
+             "source_html": "itext_edit.html", "title_path": ["IText", "Edit"],
+             "content": ("Синтаксис Automation:\n\nBOOL Edit(OLE_HANDLE HWnd);\n\n"
+                         "Возвращаемое значение:\n\n"
+                         "| TRUE | - в случае изменения текста, |\n"
+                         "| FALSE | - в случае отмены. |\n")},
+            {"id": "com_noise", "title": "ISketch.BeginEdit", "symbol": "ISketch.BeginEdit",
+             "section": "COM", "source_html": "com.html", "content": "WRONG COM"},
+        ]
+        self.docs.write_text("\n".join(json.dumps(p, ensure_ascii=False) for p in pages))
+        (self.install / "Bin/ksapi.py").write_text(SOURCE + """
+class IText(IAPIObject):
+  def Edit(self, windowHandle):
+    return bool(ksapi.IText_Edit(self.reference, windowHandle))
+""")
+        meta = json.loads(self.meta.read_text())
+        meta["IText"] = {"methods": [metadata_method("IText_Edit", "bool", [("windowHandle", "WindowHandle", "True")])]}
+        self.meta.write_text(json.dumps(meta))
+        model = self.model()
+        docs = Documentation(self.docs)
+        text = docs.text("IText.Edit", model, self.root / "out/ksapi.pyi", model.methods["IText.Edit"])
+        self.assertIn("Редактировать в окне", text)
+        self.assertIn("в случае изменения текста", text)
+        self.assertNotIn("OLE_HANDLE", text)
+        self.assertNotIn("WRONG COM", text)
+        self.assertEqual(docs.stats["com_fallback_symbols"], 1)
+        self.assertEqual(docs.stats["com_fallback_sections"], 1)
 
     def test_canonical_markdown_identity(self):
         page = json.loads(self.docs.read_text().splitlines()[0])
@@ -192,7 +309,30 @@ def ReferenceInput(target: ILoop | None):
         model = self.model()
         self.assertEqual(docs.markdown_path(page), self.docs.parent.parent / page["markdown_path"])
         text = docs.text("ISketch.BeginEdit", model, self.root / "out/ksapi.pyi", model.methods["ISketch.BeginEdit"])
-        self.assertIn("ISketch.md#canonical-beginedit", text)
+        self.assertNotIn("ISketch.md", text)
+        sources = docs.class_sources("ISketch", self.root / "out/ksapi.pyi")
+        self.assertIn("[ISketch](../docs/llm/api_objects/native/ISketch.md)", sources)
+        self.assertNotIn("#canonical-beginedit", sources)
+
+    def test_class_sources_deduplicate_documents_and_keep_inherited_sources(self):
+        (self.install / "Bin/ksapi.py").write_text(SOURCE.replace(
+            "class ISketch(IAPIObject):", "class ISketch(IAPIObject):\n    def __init__(self): pass"))
+        pages = [
+            {"symbol": symbol, "title": symbol, "section": NATIVE_SECTION,
+             "source_html": "ksapi_" + symbol.lower().replace(".", "_") + ".html",
+             "markdown_path": f"llm/{owner}.md", "content": "SDK explanation"}
+            for symbol, owner in (("ISketch", "ISketch"), ("ISketch.BeginEdit", "ISketch"),
+                                  ("ISketch.GetPoint3D", "ISketch"), ("IAPIObject.__init__", "IAPIObject"))
+        ]
+        self.docs.write_text("\n".join(json.dumps(page) for page in pages))
+        tree = ast.parse(emit_native(self.model(), Documentation(self.docs), self.root / "out/ksapi.pyi"))
+        classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+        sources = ast.get_docstring(classes["ISketch"]) or ""
+        self.assertEqual(sources.count("[ISketch]("), 1)
+        self.assertEqual(sources.count("[IAPIObject]("), 1)
+        self.assertEqual(sources.count("- ["), 2)
+        child_sources = ast.get_docstring(classes["Child"]) or ""
+        self.assertEqual(child_sources.count("[ISketch]("), 1)
 
     def test_categorized_scalar_pointer_discrepancy(self):
         source = self.install / "Bin/ksapi.py"
@@ -233,6 +373,207 @@ class Value:
         self.assertIn("def number(self) -> int", text)
         self.assertIn("def number(self, value: int) -> None", text)
         self.assertNotIn("self, old", text)
+
+    def test_constant_attribute_docs_match_name_and_value(self):
+        source = self.install / "Bin/constants.py"
+        source.write_text('''class constants:
+    VALUE = 42  # Short installed description
+    NEGATIVE = -42  # Negative
+    OTHER = 7  # Keep installed meaning
+    AMBIGUOUS = 8  # Installed description is unambiguous
+    UNDOCUMENTED = 9
+    TEXT = "# not a comment"  # A "quote" and C:\\path
+''')
+        pages = [
+            {"section": "Константы API", "markdown_path": "llm/constants.md",
+             "content": '| VALUE | 42 | SDK "description" with \\| separator |\n'
+                        '| NEGATIVE | -42 | Negative from SDK |\n'
+                        '| OTHER | 99 | Wrong value |\n'
+                        '| AMBIGUOUS | 8 | First meaning |'},
+            {"section": "Константы API", "markdown_path": "llm/constants.md",
+             "content": '| VALUE | 42 | SDK "description" with \\| separator |\n'
+                        '| AMBIGUOUS | 8 | Second meaning |'},
+            {"section": "COM", "content": "| OTHER | 7 | Unrelated documentation |"},
+        ]
+        self.docs.write_text("\n".join(json.dumps(page) for page in pages))
+        docs = Documentation(self.docs)
+        text = emit_constants(source, docs, self.root / "out/constants.pyi")
+        body = ast.parse(text).body[-1].body
+        descriptions = {node.target.id: body[index + 1].value.value
+                        for index, node in enumerate(body[:-1])
+                        if isinstance(node, ast.AnnAssign) and isinstance(body[index + 1], ast.Expr)}
+        self.assertEqual(descriptions["VALUE"], 'SDK "description" with | separator')
+        self.assertEqual(descriptions["NEGATIVE"], "Negative from SDK")
+        self.assertEqual(descriptions["OTHER"], "Keep installed meaning")
+        self.assertEqual(descriptions["AMBIGUOUS"], "Installed description is unambiguous")
+        self.assertEqual(descriptions["TEXT"], 'A "quote" and C:\\path')
+        self.assertNotIn("UNDOCUMENTED", descriptions)
+        self.assertEqual(text.count("[Константы API]("), 1)
+        self.assertEqual(docs.stats["constants_from_sdk"], 2)
+        self.assertEqual(docs.stats["constants_from_wrapper_comments"], 3)
+        self.assertEqual(docs.stats["constants_without_docs"], 1)
+        for line in text.splitlines():
+            if line.strip().startswith('"') and not line.strip().startswith('"""'):
+                self.assertTrue(line.endswith('"'))
+                self.assertFalse(line.endswith('"""'))
+
+    def test_enum_aliases_mapping_and_explicit_input_binding(self):
+        source = self.install / "Bin/ksapi.py"
+        source.write_text(SOURCE + '''
+class EnumClient:
+    def SetKind(self, value): ksapi.EnumClient_SetKind(self.kompasApp.GetReference(), self.reference, value)
+    def SetMask(self, value): ksapi.EnumClient_SetMask(self.reference, value)
+    def SetUnrelated(self, value): ksapi.EnumClient_SetUnrelated(self.reference, value)
+    def GetKind(self): return ksapi.EnumClient_GetKind(self.reference)
+    def Transform(self, value):
+        value = value + 1
+        ksapi.EnumClient_SetKind(self.kompasApp.GetReference(), self.reference, value)
+ksapi.EnumClient_SetKind.argtypes = [ctypes.c_uint64, ctypes.c_uint64, ctypes.c_int32]
+ksapi.EnumClient_SetMask.argtypes = [ctypes.c_uint64, ctypes.c_int32]
+ksapi.EnumClient_SetUnrelated.argtypes = [ctypes.c_uint64, ctypes.c_int32]
+ksapi.EnumClient_GetKind.restype = ctypes.c_int32
+''')
+        data = json.loads(self.meta.read_text())
+        data["EnumClient"] = {"methods": [
+            metadata_method("EnumClient_SetKind", "void", [("value", "KindEnum", True)]),
+            metadata_method("EnumClient_SetMask", "void", [("value", "MaskEnum", True)]),
+            metadata_method("EnumClient_SetUnrelated", "void", [("value", "int32_t", True)]),
+            metadata_method("EnumClient_GetKind", "KindEnum", []),
+        ]}
+        self.meta.write_text(json.dumps(data))
+        (self.install / "Bin/constants.py").write_text('class constants:\n    FIRST = 0\n    SECOND = 1\n    BIT_A = 1\n    BIT_B = 2\n    BIT_C = 4\n')
+        pages = [
+            {"section": "Константы API", "title": "KindEnum - Тип объекта",
+             "content": "| FIRST | 0 | Первый |\n| SECOND | 1 | Второй |"},
+            {"section": "Константы API", "title": "MaskEnum - Битовая маска",
+             "content": "| BIT_A | 1 | A |\n| BIT_B | 2 | B |\n| BIT_C | 4 | C |"},
+        ]
+        self.docs.write_text("\n".join(json.dumps(page) for page in pages))
+        report = generate(self.install, self.docs, self.root / "out", self.meta)
+        text = (self.root / "out/ksapi.pyi").read_text()
+        self.assertNotIn("from constants import KindEnum", text)
+        self.assertIn("def SetKind(self, value: Literal[0, 1])", text)
+        self.assertIn("Допустимые значения value (KindEnum):\n        0 — FIRST: Первый\n        1 — SECOND: Второй", text)
+        self.assertIn("def SetMask(self, value: int)", text)
+        self.assertIn("def SetUnrelated(self, value: int)", text)
+        self.assertIn("def GetKind(self) -> int", text)
+        self.assertNotIn("def Transform(self, value: KindEnum)", text)
+        constants = (self.root / "out/constants.pyi").read_text()
+        self.assertNotIn("KindEnum: TypeAlias", constants)
+        self.assertTrue(report["enum_aliases"]["KindEnum"]["inline"])
+        self.assertEqual(report["documentation"]["enum_inline_domains"], 1)
+        self.assertIn("MaskEnum: TypeAlias = int", constants)
+        self.assertEqual(report["documentation"]["enum_input_parameters"], 1)
+        self.assertEqual(report["enum_bindings"][0]["symbol"], "EnumClient.SetKind")
+
+    def test_enum_shared_by_methods_retains_alias(self):
+        source = self.install / "Bin/ksapi.py"
+        source.write_text(SOURCE + '''
+class EnumClient:
+    def SetKind(self, value): ksapi.EnumClient_SetKind(self.reference, value)
+    def Another(self, value): ksapi.EnumClient_SetKind(self.reference, value)
+ksapi.EnumClient_SetKind.argtypes = [ctypes.c_uint64, ctypes.c_int32]
+''')
+        data = json.loads(self.meta.read_text())
+        data["EnumClient"] = {"methods": [metadata_method("EnumClient_SetKind", "void", [("value", "KindEnum", True)])]}
+        self.meta.write_text(json.dumps(data))
+        (self.install / "Bin/constants.py").write_text("class constants:\n    FIRST = 0\n    SECOND = 1\n")
+        self.docs.write_text(json.dumps({"section": "Константы API", "title": "KindEnum - Тип объекта",
+                                         "content": "| FIRST | 0 | Первый |\n| SECOND | 1 | Второй |"}))
+        report = generate(self.install, self.docs, self.root / "out", self.meta)
+        text = (self.root / "out/ksapi.pyi").read_text()
+        self.assertIn("from constants import KindEnum", text)
+        self.assertIn("def SetKind(self, value: KindEnum)", text)
+        self.assertIn("def Another(self, value: KindEnum)", text)
+        self.assertNotIn("Допустимые значения value (KindEnum)", text)
+        self.assertFalse(report["enum_aliases"]["KindEnum"]["inline"])
+        constants = (self.root / "out/constants.pyi").read_text()
+        self.assertIn("KindEnum: TypeAlias = Literal[0, 1]", constants)
+        self.assertIn('"""Тип объекта\n\n0 — FIRST: Первый\n1 — SECOND: Второй\n"""', constants)
+
+    def test_single_method_multiple_enum_parameters_inline_and_class_sources(self):
+        source = self.install / "Bin/ksapi.py"
+        source.write_text(SOURCE + '''
+class EnumClient:
+    def SetPair(self, first, second): ksapi.EnumClient_SetPair(self.reference, first, second)
+ksapi.EnumClient_SetPair.argtypes = [ctypes.c_uint64, ctypes.c_int32, ctypes.c_int32]
+''')
+        data = json.loads(self.meta.read_text())
+        data["EnumClient"] = {"methods": [metadata_method("EnumClient_SetPair", "void", [
+            ("first", "KindEnum", True), ("second", "KindEnum", True)])]}
+        self.meta.write_text(json.dumps(data))
+        (self.install / "Bin/constants.py").write_text("class constants:\n    FIRST = 0\n    SECOND = 1\n")
+        self.docs.write_text(json.dumps({"section": "Константы API", "title": "KindEnum - Тип объекта",
+                                         "markdown_path": "llm/kind.md", "content": "| FIRST | 0 | Первый |\n| SECOND | 1 | Второй |"}))
+        report = generate(self.install, self.docs, self.root / "out", self.meta)
+        tree = ast.parse((self.root / "out/ksapi.pyi").read_text())
+        client = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "EnumClient")
+        method = next(node for node in client.body if isinstance(node, ast.FunctionDef))
+        for arg in method.args.args[1:]:
+            self.assertEqual(ast.unparse(arg.annotation), "Literal[0, 1]")
+            self.assertIn(f"Допустимые значения {arg.arg} (KindEnum):", ast.get_docstring(method))
+        self.assertIn("Источники SDK:", ast.get_docstring(client))
+        self.assertIn("kind.md)", ast.get_docstring(client))
+        self.assertNotIn("Источники SDK:", ast.get_docstring(method))
+        self.assertEqual(report["documentation"]["enum_inline_domains"], 1)
+        self.assertEqual(report["documentation"]["enum_input_parameters"], 2)
+        self.assertNotIn("KindEnum: TypeAlias", (self.root / "out/constants.pyi").read_text())
+
+    def test_single_function_enum_inlines_in_function_docstring(self):
+        source = self.install / "Bin/ksapi.py"
+        source.write_text(SOURCE + '''
+def SetKind(value): ksapi.SetKind(value)
+ksapi.SetKind.argtypes = [ctypes.c_int32]
+''')
+        data = json.loads(self.meta.read_text())
+        data["SetKind"] = {"name_c": "SetKind", "return_value": {"type_cpp": "void"},
+                           "parameters": [{"name": "value", "type_cpp": "KindEnum", "in": True}]}
+        self.meta.write_text(json.dumps(data))
+        (self.install / "Bin/constants.py").write_text("class constants:\n    FIRST = 0\n    SECOND = 1\n")
+        self.docs.write_text(json.dumps({"section": "Константы API", "title": "KindEnum - Kind",
+                                         "content": "| FIRST | 0 | First |\n| SECOND | 1 | Second |"}))
+        generate(self.install, self.docs, self.root / "out", self.meta)
+        tree = ast.parse((self.root / "out/ksapi.pyi").read_text())
+        method = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "SetKind")
+        self.assertEqual(ast.unparse(method.args.args[0].annotation), "Literal[0, 1]")
+        self.assertIn("Допустимые значения value (KindEnum):\n0 — FIRST: First\n1 — SECOND: Second", ast.get_docstring(method))
+        self.assertNotIn("KindEnum: TypeAlias", (self.root / "out/constants.pyi").read_text())
+
+    def test_enum_rejects_entire_untrustworthy_table(self):
+        (self.install / "Bin/constants.py").write_text("class constants:\n    FIRST = 0\n    SECOND = 1\n")
+        tables = {
+            "drift": "| FIRST | 0 | First |\n| SECOND | 2 | Wrong |",
+            "missing": "| FIRST | 0 | First |\n| SECOND | | Missing |",
+            "anonymous": "| FIRST | 0 | First |\n| | 1 | Unnamed |",
+            "malformed": "| FIRST | 0 | First |\n| SECOND | 1, | Malformed |",
+            "unknown": "| FIRST | 0 | First |\n| UNKNOWN | 1 | Missing constant |",
+            "conflicting": "| FIRST | 0 | First |\n| FIRST | 1 | Conflicting |",
+            "operands": "| FIRST | 0 | First |\n| SECOND | 0x1 | 0x8 | Composite |",
+        }
+        for case, content in tables.items():
+            with self.subTest(case=case):
+                self.docs.write_text(json.dumps({"section": "Константы API", "title": "KindEnum - Kind", "content": content}))
+                report = generate(self.install, self.docs, self.root / "out", self.meta)
+                self.assertNotIn("KindEnum", report["enum_aliases"])
+                self.assertIn("KindEnum", report["enum_rejections"])
+                self.assertNotIn("KindEnum: TypeAlias", (self.root / "out/constants.pyi").read_text())
+
+    def test_linked_usage_vetoes_closed_enum_and_evaluates_constants(self):
+        (self.install / "Bin/constants.py").write_text("class constants:\n    FIRST = 0\n    SECOND = FIRST | 3\n")
+        pages = [{"section": "Константы API", "title": "KindEnum - Kind",
+                  "content": "| FIRST | 0 | First |\n| SECOND | 3 | Second |"},
+                 {"section": "Automation", "content": "Допускается комбинация значений [KindEnum](<webhelp:kind.html>)."}]
+        self.docs.write_text("\n".join(json.dumps(page) for page in pages))
+        report = generate(self.install, self.docs, self.root / "out", self.meta)
+        self.assertEqual(report["enum_aliases"]["KindEnum"]["values"], [0, 3])
+        self.assertFalse(report["enum_aliases"]["KindEnum"]["closed"])
+        self.assertIn("KindEnum: TypeAlias = int", (self.root / "out/constants.pyi").read_text())
+
+    def test_single_line_docstrings_use_one_pair_of_double_quotes(self):
+        text = 'Описание с "кавычками" и C:\\path'
+        literal = doc_literal(text, "    ")
+        self.assertEqual(literal, ["    " + json.dumps(text, ensure_ascii=False)])
+        self.assertEqual(ast.literal_eval(literal[0].strip()), text)
 
     def test_missing_docs_actionable(self):
         with self.assertRaisesRegex(FileNotFoundError, "scripts/prepare/prepare_docs.py"):

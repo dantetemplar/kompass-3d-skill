@@ -12,26 +12,32 @@ Cuts from the lower XOY sketch require reverse direction and reverse-side depth.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 import math
 from pathlib import Path
+from typing import TypeVar
 
 import ksapi
 from constants import constants as c
 from constants3d import constants as c3d
 
 
-def require(value, message):
+T = TypeVar("T")
+Point2 = tuple[float, float]
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
-def connect():
+def connect() -> ksapi.IApplication:
     return require(ksapi.GetKompas(), "Нет API-сессии. Запустите КОМПАС командой из SKILL.md.")
 
 
-def close_owned(owned):
+def close_owned(owned: list[ksapi.IKompasDocument]) -> None:
     """Close only handles registered by this invocation, never infer ownership."""
     while owned:
         doc = owned[-1]
@@ -39,7 +45,9 @@ def close_owned(owned):
         owned.pop()
 
 
-def new_part(app, name, *, owned=None):
+def new_part(
+    app: ksapi.IApplication, name: str, *, owned: list[ksapi.IKompasDocument] | None = None,
+) -> tuple[ksapi.IKompasDocument, ksapi.IPart, ksapi.IModelContainer]:
     doc = require(app.GetDocuments().AddWithDefaultSettings(c.ksDocumentPart, True), "Новая деталь")
     registry = [] if owned is None else owned
     registry.append(doc)  # Before GetTopPart or the first document mutation.
@@ -53,11 +61,11 @@ def new_part(app, name, *, owned=None):
         raise
 
 
-def feature_errors(part):
+def feature_errors(part: ksapi.IPart) -> list[dict[str, list[str] | int]]:
     """Walk all operation-tree branches, including hidden sketches/components."""
     errors, seen = [], set()
 
-    def visit(feature, path):
+    def visit(feature: ksapi.IFeature, path: Sequence[str]) -> None:
         if feature.reference in seen:
             return
         seen.add(feature.reference)
@@ -75,7 +83,9 @@ def feature_errors(part):
 
 
 @contextmanager
-def sketch_xoy(part, model):
+def sketch_xoy(
+    part: ksapi.IPart, model: ksapi.IModelContainer,
+) -> Iterator[tuple[ksapi.ISketch, ksapi.IDrawingContainer]]:
     sketch = require(model.GetSketchs().Add(), "Эскиз")
     sketch.SetPlane(require(part.GetDefaultObject(c3d.o3d_planeXOY), "Плоскость XOY"))
     require(sketch.Update(), "Плоскость эскиза")
@@ -87,7 +97,9 @@ def sketch_xoy(part, model):
         require(sketch.EndEdit(), "Завершение эскиза")
 
 
-def circle(drawing, x, y, radius):
+def circle(
+    drawing: ksapi.IDrawingContainer, x: float, y: float, radius: float,
+) -> ksapi.ICircle:
     obj = require(drawing.GetCircles().Add(), "Окружность")
     obj.SetXc(x)
     obj.SetYc(y)
@@ -96,7 +108,10 @@ def circle(drawing, x, y, radius):
     return obj
 
 
-def arc(drawing, center, radius, a1, a2, *, clockwise=False, tolerance=1e-5):
+def arc(
+    drawing: ksapi.IDrawingContainer, center: Point2, radius: float, a1: float, a2: float,
+    *, clockwise: bool = False, tolerance: float = 1e-5,
+) -> ksapi.IArc:
     """Create an IArc: input angles in radians, KsAPI angles in degrees.
 
     True means clockwise. Equal angles/full turns require a circle, not an arc.
@@ -130,7 +145,9 @@ def arc(drawing, center, radius, a1, a2, *, clockwise=False, tolerance=1e-5):
     return obj
 
 
-def rectangle(drawing, x, y, width, height):
+def rectangle(
+    drawing: ksapi.IDrawingContainer, x: float, y: float, width: float, height: float,
+) -> ksapi.IRectangle:
     obj = require(drawing.GetRectangles().Add(), "Прямоугольник")
     obj.SetX(x)
     obj.SetY(y)
@@ -140,7 +157,7 @@ def rectangle(drawing, x, y, width, height):
     return obj
 
 
-def line(drawing, p, q):
+def line(drawing: ksapi.IDrawingContainer, p: Point2, q: Point2) -> ksapi.ILineSegment:
     obj = require(drawing.GetLineSegments().Add(), "Отрезок")
     obj.SetX1(p[0])
     obj.SetY1(p[1])
@@ -150,7 +167,9 @@ def line(drawing, p, q):
     return obj
 
 
-def blend_lines(p0, corner, p1, radius, *, tolerance=1e-5):
+def blend_lines(
+    p0: Point2, corner: Point2, p1: Point2, radius: float, *, tolerance: float = 1e-5,
+) -> tuple[tuple[Point2, Point2], tuple[Point2, float, float, float, bool], tuple[Point2, Point2]]:
     """Trim p0->corner->p1 and insert a tangent circular arc; no extension.
 
     Return (segment_a, arc_parameters, segment_b), without CAD mutation.
@@ -182,7 +201,10 @@ def blend_lines(p0, corner, p1, radius, *, tolerance=1e-5):
     return (p0, pa), (center, radius, a1, a2, cross < 0), (pb, p1)
 
 
-def bezier(drawing, nodes):
+def bezier(
+    drawing: ksapi.IDrawingContainer,
+    nodes: Sequence[tuple[float, float, float, float, float, float]],
+) -> ksapi.IBezier:
     """Nodes: (base_x, base_y, left_x, left_y, right_x, right_y), absolute coordinates."""
     obj = require(drawing.GetBeziers().Add(), "Кривая Безье")
     obj.SetClosed(False)
@@ -193,7 +215,9 @@ def bezier(drawing, nodes):
     return obj
 
 
-def extrude(model, sketch, depth, *, cut=False):
+def extrude(
+    model: ksapi.IModelContainer, sketch: ksapi.ISketch, depth: float, *, cut: bool = False,
+) -> ksapi.IExtrusion:
     operation = require(model.GetExtrusions().Add(
         c3d.o3d_cutExtrusion if cut else c3d.o3d_bossExtrusion
     ), "Операция выдавливания")
@@ -205,7 +229,7 @@ def extrude(model, sketch, depth, *, cut=False):
     return operation
 
 
-def solid_bounds(part, operation):
+def solid_bounds(part: ksapi.IPart, operation: ksapi.IExtrusion) -> tuple[float, ...]:
     require(part.RebuildModel(True), "Перестроение")
     bodies = ksapi.IFeature(part).GetResultBodies()
     require(len(bodies) == 1, f"Ожидалось одно тело, получено {len(bodies)}")
@@ -216,7 +240,10 @@ def solid_bounds(part, operation):
     return bounds[1:]
 
 
-def verify_cylindrical_walls(part, expected, *, tolerance=1e-5):
+def verify_cylindrical_walls(
+    part: ksapi.IPart, expected: Sequence[tuple[float, float, float, float, float]],
+    *, tolerance: float = 1e-5,
+) -> None:
     """Check actual cylindrical faces and their circular rims for this simple recipe.
 
     Expected entries: (center_x, center_y, radius, z_min, z_max), in millimetres.
@@ -260,7 +287,7 @@ def verify_cylindrical_walls(part, expected, *, tolerance=1e-5):
         actual.pop(matches[0])
 
 
-def save_new(doc, path):
+def save_new(doc: ksapi.IKompasDocument, path: str | Path) -> Path:
     path = Path(path).expanduser().absolute()
     if path.exists() or path.is_symlink():
         raise FileExistsError(f"Не перезаписываем {path}")
@@ -272,14 +299,14 @@ def save_new(doc, path):
     return path
 
 
-def positive(value):
+def positive(value: str) -> float:
     result = float(value)
     if not math.isfinite(result) or result <= 0:
         raise argparse.ArgumentTypeError("Ожидается положительное конечное число")
     return result
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("shape", choices=["plate", "ring"])
     parser.add_argument("--output", required=True, type=Path)

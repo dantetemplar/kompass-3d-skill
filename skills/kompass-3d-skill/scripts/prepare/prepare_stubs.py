@@ -30,7 +30,7 @@ def generate(install: Path, docs_path: Path, output: Path, metadata: Path | None
     output.mkdir(parents=True, exist_ok=True)
     files = {"ksapi.pyi": emit_native(model, docs, output / "ksapi.pyi")}
     for name in ("constants", "constants3d"):
-        files[name + ".pyi"] = emit_constants(bin_dir / (name + ".py"))
+        files[name + ".pyi"] = emit_constants(bin_dir / (name + ".py"), docs, output / (name + ".pyi"))
     for name, text in files.items():
         ast.parse(text, filename=name)
         atomic_write(output / name, text)
@@ -57,6 +57,11 @@ def generate(install: Path, docs_path: Path, output: Path, metadata: Path | None
                    "diagnostics": len(model.diagnostics), **model.stats},
         "documentation": {**docs.stats, "matched_symbols": len(docs.matches), "native_filename_pages": sum(Path(str(p.get("source_html", ""))).name.startswith("ksapi_") for p in docs.pages)},
         "documentation_unmatched_symbols": docs.unmatched,
+        "enum_bindings": docs.enum_bindings,
+        "enum_rejections": docs.enum_rejections,
+        "enum_aliases": {name: {"module": enum["module"], "closed": enum["closed"], "inline": enum["inline"],
+                                "values": enum["values"], "source": enum["page"].get("source_html")}
+                         for name, enum in docs.enums.items()},
         "diagnostic_counts": dict(reasons),
         "type_conflict_categories": dict(Counter(d["category"] for d in model.diagnostics if "category" in d)),
         "diagnostics": model.diagnostics,
@@ -64,7 +69,9 @@ def generate(install: Path, docs_path: Path, output: Path, metadata: Path | None
             "AST and SDK metadata only: no native module imports, CAD startup, network or runtime validation.",
             "Unconfigured native restypes retain ctypes' actual int default, even when C++ metadata declares void.",
             "Unresolved Python/dynamic pointer conversions are explicit Any with per-symbol diagnostics.",
-            "Only exact native documentation identities and actual Python base chains are used; COM pages are excluded.",
+            "Interface documentation uses exact native identities and actual Python base chains. COM/Automation syntax and parameter tables are excluded; when a native page omits return/note/description prose, those sections are borrowed from the matching COM page.",
+            "Constant documentation matches SDK constant-table names and integer values; ambiguous or absent entries retain installed wrapper comments.",
+            "SDK enum aliases are type-only, not runtime exports; single-method closed enums are inlined as Literal with method-local value mappings. Only explicit directly forwarded inputs are narrowed. Returns, flag/uncertain domains and transformed arguments retain their original types.",
             "No properties, overloads or inheritance are synthesized; output initializer arguments remain required.",
         ],
         "files": {name: {"lines": len(text.splitlines()), "bytes": len(text.encode())} for name, text in files.items()},

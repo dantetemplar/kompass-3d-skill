@@ -160,6 +160,16 @@ class SdkTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(output.getvalue())["results"], second["results"])
 
+    def test_ast_commands_do_not_require_stubs_ty_or_start_processes(self):
+        with patch("sdk.shutil.which", side_effect=AssertionError("ty lookup forbidden")), \
+                patch("sdk.subprocess.run", side_effect=AssertionError("process launch forbidden")):
+            for command in (("local", "IPart"), ("inspect", "IPart"),
+                            ("constants", "XOY"), ("verify", "IPart.Update")):
+                with self.subTest(command=command), redirect_stdout(io.StringIO()):
+                    code = sdk.main(["--bin", str(self.root), "--stubs", str(self.root / "missing-stubs"),
+                                     *command])
+                    self.assertEqual(code, 0)
+
     def test_unknown_symbol_is_not_invented(self):
         for symbol in ("IPart7", "IPart.DoesNotExist", "IUnknown.Member"):
             with self.subTest(symbol=symbol), self.assertRaises(ValueError):

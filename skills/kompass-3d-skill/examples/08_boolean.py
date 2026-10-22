@@ -7,21 +7,28 @@
 Без аргументов — временная деталь; --output /новый/путь.m3d сохраняет её.
 Каждый цилиндр создаётся отдельным телом, затем выполняется одна разность.
 """
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
+from typing import TypeVar
 
 import ksapi
 from constants import constants as c
 from constants3d import constants as c3d
 
 
-def require(value, message):
+T = TypeVar("T")
+Bounds = tuple[float, float, float, float, float, float]
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
-def cylinder(part, model, radius):
+def cylinder(part: ksapi.IPart, model: ksapi.IModelContainer, radius: float) -> ksapi.IBody:
     sketch = require(model.GetSketchs().Add(), "Эскиз цилиндра")
     sketch.SetPlane(part.GetDefaultObject(c3d.o3d_planeXOY))
     require(sketch.Update(), "Плоскость эскиза")
@@ -47,7 +54,7 @@ def cylinder(part, model, radius):
     return bodies[0]
 
 
-def build(part, model):
+def build(part: ksapi.IPart, model: ksapi.IModelContainer) -> None:
     base = cylinder(part, model, 15)
     tool = cylinder(part, model, 5)
     operation = require(model.GetBooleans().Add(), "Булева разность")
@@ -59,7 +66,7 @@ def build(part, model):
     require(operation.Update(), "Вычитание цилиндра")
 
 
-def validate(part):
+def validate(part: ksapi.IPart) -> Bounds:
     require(part.RebuildModel(True), "Перестроение")
     bodies = ksapi.IFeature(part).GetResultBodies()
     require(len(bodies) == 1 and bodies[0].IsSolid(), "Должна остаться одна втулка")
@@ -73,7 +80,7 @@ def validate(part):
             "Нужны наружная стенка R15 и стенка сквозного отверстия R5")
     seen = set()
 
-    def visit(feature):
+    def visit(feature: ksapi.IFeature) -> None:
         if feature.reference in seen:
             return
         seen.add(feature.reference)
@@ -86,7 +93,7 @@ def validate(part):
     return tuple(bounds[1:])
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()

@@ -1,11 +1,17 @@
-"""Render AST-derived native stubs and attach exact, native-only documentation."""
+"""Render AST-derived native stubs and attach native SDK documentation.
+
+When a native KsAPI page omits semantic sections, matching COM/Automation prose
+(return meaning, notes, description) is merged — never COM/Automation syntax.
+"""
 from __future__ import annotations
 
 import ast
 import hashlib
+import io
 import json
 import os
 import re
+import tokenize
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -14,6 +20,74 @@ from urllib.parse import unquote, urlparse
 from native import Method, NativeModel, dotted, effective, nodes_in_function
 
 NATIVE_SECTION = "API интерфейсов. KsAPI"
+CONSTANTS_SECTION = "Константы API"
+# Prose-only COM sections safe to borrow when the native page is silent.
+# Never take parameter tables: COM names/signatures disagree with ksapi.
+COM_FALLBACK_CANONICAL = (
+    "Возвращаемое значение:",
+    "Примечание:",
+    "Описание:",
+    "Значение свойства:",
+)
+_COM_HEADING_ALIASES = {
+    "возвращаемое значение": "Возвращаемое значение:",
+    "возвращаемое значения": "Возвращаемое значение:",
+    "возвращается": "Возвращаемое значение:",
+    "примечание": "Примечание:",
+    "примечания": "Примечание:",
+    "описание": "Описание:",
+    "значение свойства": "Значение свойства:",
+}
+
+
+def constant_rows(content: str):
+    """Read named integer values and descriptions from SDK constant tables."""
+    for line in content.splitlines():
+        if not line.lstrip().startswith("|"):
+            continue
+        cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", line.strip())[1:-1]]
+        if len(cells) < 3:
+            continue
+        # WebHelp may split OR operands across cells; the first is not a value.
+        if any(re.fullmatch(r"[+-]?(?:0[xX][0-9a-fA-F]+|\d+)", cell.strip("` ")) for cell in cells[2:-1]):
+            continue
+        name = cells[0].strip("` ")
+        value = cells[1].strip("` ").replace("−", "-")
+        if not re.fullmatch(r"[A-Za-z_]\w*", name) or not re.fullmatch(r"[+-]?(?:0[xX][0-9a-fA-F]+|\d+)", value):
+            continue
+        description = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", cells[2])
+        description = description.replace(r"\|", "|").strip()
+        if description:
+            yield name, int(value, 16 if "x" in value.lower() else 10), description
+
+
+def integer_expression(node: ast.AST | None, known: dict[str, int]) -> int | None:
+    """Evaluate only integer constants and installed constant expressions; never eval."""
+    if isinstance(node, ast.Constant) and type(node.value) is int:
+        return node.value
+    if isinstance(node, ast.Name):
+        return known.get(node.id)
+    if isinstance(node, ast.UnaryOp):
+        value = integer_expression(node.operand, known)
+        if value is not None:
+            if isinstance(node.op, ast.USub):
+                return -value
+            if isinstance(node.op, ast.UAdd):
+                return value
+            if isinstance(node.op, ast.Invert):
+                return ~value
+    if isinstance(node, ast.BinOp):
+        left, right = integer_expression(node.left, known), integer_expression(node.right, known)
+        if left is None or right is None:
+            return None
+        operations = {ast.BitOr: int.__or__, ast.BitAnd: int.__and__, ast.BitXor: int.__xor__,
+                      ast.Add: int.__add__, ast.Sub: int.__sub__, ast.Mult: int.__mul__}
+        operation = operations.get(type(node.op))
+        if operation:
+            return operation(left, right)
+        if isinstance(node.op, (ast.LShift, ast.RShift)) and 0 <= right <= 64:
+            return left << right if isinstance(node.op, ast.LShift) else left >> right
+    return None
 
 
 class Documentation:
@@ -26,15 +100,37 @@ class Documentation:
         self.path = path
         self.pages: list[dict[str, Any]] = []
         self.index: dict[str, list[int]] = defaultdict(list)
+        self.com_pages: list[dict[str, Any]] = []
+        self.com_index: dict[str, list[int]] = defaultdict(list)
         self.stats: Counter[str] = Counter()
         self.matches: dict[str, dict[str, Any]] = {}
+        self.constant_matches: dict[str, dict[str, Any]] = {}
+        self.constants: dict[tuple[str, int], dict[str, dict[str, Any]]] = defaultdict(dict)
+        self.enum_pages: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        self.enums: dict[str, dict[str, Any]] = {}
+        self.enum_bindings: list[dict[str, str]] = []
+        self.enum_rejections: dict[str, str] = {}
+        self.enum_usage: dict[str, list[str]] = defaultdict(list)
         self.unmatched: list[str] = []
         for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if not line.strip():
                 continue
             page = json.loads(line)
-            if page.get("section") != NATIVE_SECTION:
+            content = str(page.get("content", ""))
+            for enum_name in set(re.findall(r"\[([A-Za-z_]\w*)\]\(<webhelp:", content)):
+                self.enum_usage[enum_name].append(content)
+            section = page.get("section")
+            if section == CONSTANTS_SECTION:
+                rows = list(constant_rows(str(page.get("content", ""))))
+                title = re.match(r"^([A-Za-z_]\w*)\s*(?:[-—–]|$)", str(page.get("title", "")))
+                if title:
+                    self.enum_pages[title.group(1)].append(page)
+                for name, value, description in rows:
+                    self.constants[name, value].setdefault(description, page)
+            if section != NATIVE_SECTION:
                 self.stats["excluded_non_native_pages"] += 1
+                if section != CONSTANTS_SECTION:
+                    self._index_com_page(page)
                 continue
             self.stats["native_pages"] += 1
             source = str(page.get("source_html", ""))
@@ -54,6 +150,150 @@ class Documentation:
                 key = self.normalize(identity)
                 if key and index not in self.index[key]:
                     self.index[key].append(index)
+
+    def _index_com_page(self, page: dict[str, Any]) -> None:
+        """Index COM/Automation pages for prose fallback; never for type binding."""
+        source = str(page.get("source_html", ""))
+        filename = Path(urlparse(source).path).name.lower()
+        if filename.startswith("ksapi_"):
+            return
+        identities = [str(page.get("symbol") or ""), str(page.get("title") or ""), str(page.get("key") or "")]
+        title_path = page.get("title_path") or []
+        if isinstance(title_path, list):
+            owners = [str(p) for p in title_path if re.fullmatch(r"I[A-Za-z0-9_]+", str(p))]
+            if owners and identities[1]:
+                identities.append(owners[-1] + "." + identities[1])
+        stem = filename.removesuffix(".html").removesuffix(".htm")
+        if stem:
+            identities.append(stem)
+        index = len(self.com_pages)
+        self.com_pages.append(page)
+        for identity in identities:
+            key = self.normalize(identity)
+            if key and index not in self.com_index[key]:
+                self.com_index[key].append(index)
+
+    def prepare_enums(self, model: NativeModel) -> None:
+        """Build documented aliases; narrow only explicit, directly forwarded inputs."""
+        if self.enums:
+            return
+        inventories: dict[str, dict[str, int]] = {}
+        reserved = set(model.classes) | set(model.functions) | set(model.callbacks)
+        for module in ("constants", "constants3d"):
+            tree = ast.parse((model.source.parent / (module + ".py")).read_text(encoding="utf-8-sig"))
+            inventory = {}
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                    integer = integer_expression(node.value, inventory)
+                    if integer is not None:
+                        inventory.update({target.id: integer for target in targets if isinstance(target, ast.Name)})
+            inventories[module] = inventory
+            reserved.update(inventory)
+        for name, pages in sorted(self.enum_pages.items()):
+            if len(pages) != 1 or name in reserved:
+                continue
+            page = pages[0]
+            rows = list(constant_rows(page["content"]))
+            by_name: dict[str, set[tuple[int, str]]] = defaultdict(set)
+            for member, value, description in rows:
+                by_name[member].add((value, description))
+            if any(len(values) != 1 for values in by_name.values()):
+                self.enum_rejections[name] = "conflicting SDK member rows"
+                continue
+            named_rows = [line for line in page["content"].splitlines()
+                          if re.match(r"^\|\s*`?[A-Za-z_]\w*`?\s*\|", line)
+                          and not re.match(r"^\|\s*(?:Column\b|Name\b)", line)]
+            anonymous_values = any(re.match(r"^\|\s*\|\s*[+-]?(?:0[xX][0-9a-fA-F]+|\d+)\s*\|", line)
+                                   for line in page["content"].splitlines())
+            multi_column = any(len(re.split(r"(?<!\\)\|", line.strip())[1:-1]) != 3 for line in named_rows)
+            if len(named_rows) != len(rows) or anonymous_values or multi_column:
+                self.enum_rejections[name] = "incomplete or multi-column SDK value table"
+                continue
+            scores = {module: sum(inventory.get(member) == value for member, value, _ in rows)
+                      for module, inventory in inventories.items()}
+            if not rows or not max(scores.values()):
+                self.enum_rejections[name] = "no matching installed constants"
+                continue
+            module = max(scores, key=scores.get)
+            if any(inventories[module].get(member) != value for member, value, _ in rows):
+                self.enum_rejections[name] = "SDK members disagree with installed constants"
+                continue
+            values = sorted({value for _, value, _ in rows})
+            # Named bitsets and sparse power-of-two domains are not closed choices.
+            evidence = page["title"] + "\n" + page["content"] + "\n" + "\n".join(self.enum_usage[name])
+            flags = bool(re.search(r"flag|mask|флаг|маск|побитов|битов|комбинац|сочетан|логическ.{0,25}(?:или|or)", evidence, re.I))
+            positive = [value for value in values if value > 0]
+            flags |= len(positive) >= 3 and all(value & (value - 1) == 0 for value in positive)
+            open_domain = bool(re.search(r"произвольн|пользовательск.{0,35}(?:значени|тип|код)|и\s+выше|и\s+более", evidence, re.I))
+            closed = not (flags or open_domain)
+            self.enums[name] = {"module": module, "page": page, "rows": rows,
+                                "values": values, "closed": closed}
+        for method in model.methods.values():
+            reassigned = {node.id for node in nodes_in_function(method.node)
+                          if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)}
+            for node in nodes_in_function(method.node):
+                if not isinstance(node, ast.Call) or not dotted(node.func).startswith("ksapi."):
+                    continue
+                native = dotted(node.func)[6:]
+                parameters = model.signature(native).metadata.get("parameters", [])
+                offset = len(node.args) - len(parameters)
+                if offset < 0:
+                    continue
+                for parameter, argument in zip(parameters, node.args[offset:]):
+                    enum = str(parameter.get("type_cpp", ""))
+                    if (enum not in self.enums or not self.enums[enum]["closed"]
+                            or parameter.get("in") not in (True, "True", "true")
+                            or not isinstance(argument, ast.Name) or argument.id in reassigned
+                            or method.arguments.get(argument.id) != "int"):
+                        continue
+                    # All direct native uses must agree on this argument's domain.
+                    uses = [(model.signature(dotted(call.func)[6:]).metadata.get("parameters", []), call.args)
+                            for call in nodes_in_function(method.node)
+                            if isinstance(call, ast.Call) and dotted(call.func).startswith("ksapi.")]
+                    domains = [param.get("type_cpp") for params, args in uses
+                               for param, arg in zip(params, args[len(args) - len(params):])
+                               if isinstance(arg, ast.Name) and arg.id == argument.id]
+                    if set(domains) != {enum}:
+                        continue
+                    method.arguments[argument.id] = enum
+                    self.enum_bindings.append({"symbol": method.symbol, "parameter": argument.id,
+                                               "enum": enum, "native": native})
+        methods_by_enum: dict[str, set[str]] = defaultdict(set)
+        for binding in self.enum_bindings:
+            methods_by_enum[binding["enum"]].add(binding["symbol"])
+        for name, enum in self.enums.items():
+            enum["inline"] = len(methods_by_enum[name]) == 1
+        for binding in self.enum_bindings:
+            enum = self.enums[binding["enum"]]
+            if enum["inline"]:
+                model.methods[binding["symbol"]].arguments[binding["parameter"]] = (
+                    "Literal[" + ", ".join(map(str, enum["values"])) + "]")
+        self.stats["enum_aliases"] = sum(not enum["inline"] for enum in self.enums.values())
+        self.stats["enum_closed_aliases"] = sum(enum["closed"] and not enum["inline"] for enum in self.enums.values())
+        self.stats["enum_inline_domains"] = sum(enum["inline"] for enum in self.enums.values())
+        self.stats["enum_input_parameters"] = len(self.enum_bindings)
+
+    def constant_text(self, symbol: str, value: ast.AST | None, comment: str) -> str:
+        integer = None
+        if isinstance(value, ast.Constant) and type(value.value) is int:
+            integer = value.value
+        elif (isinstance(value, ast.UnaryOp) and isinstance(value.op, (ast.USub, ast.UAdd))
+              and isinstance(value.operand, ast.Constant) and type(value.operand.value) is int):
+            integer = -value.operand.value if isinstance(value.op, ast.USub) else value.operand.value
+        candidates = self.constants.get((symbol.rsplit(".", 1)[-1], integer), {})
+        if len(candidates) == 1:
+            description, page = next(iter(candidates.items()))
+            self.constant_matches[symbol] = page
+            self.stats["constants_from_sdk"] += 1
+            return description
+        if len(candidates) > 1:
+            self.stats["ambiguous_constant_docs"] += 1
+        if comment:
+            self.stats["constants_from_wrapper_comments"] += 1
+        else:
+            self.stats["constants_without_docs"] += 1
+        return comment
 
     @staticmethod
     def normalize(value: str) -> str:
@@ -108,6 +348,20 @@ class Documentation:
         self.unmatched.append(symbol)
         return None
 
+    def find_com(self, symbol: str) -> dict[str, Any] | None:
+        """Resolve a unique COM/Automation page for semantic fallback."""
+        matches = self.com_index.get(self.normalize(symbol), [])
+        expected = symbol.replace(".", "_").casefold()
+        filenames = [
+            i for i in matches
+            if Path(urlparse(str(self.com_pages[i].get("source_html", ""))).path).stem.casefold() == expected
+        ]
+        if len(filenames) == 1:
+            matches = filenames
+        if len(matches) != 1:
+            return None
+        return self.com_pages[matches[0]]
+
     def markdown_path(self, page: dict[str, Any]) -> Path:
         # The docs generator may supply an explicit relative Markdown identity.
         for name in ("markdown_path", "markdown", "output_markdown"):
@@ -131,35 +385,156 @@ class Documentation:
         page = self.find(symbol, model)
         parts: list[str] = []
         if page:
-            parts.append(str(page.get("title") or symbol))
-            content = page.get("content", "")
-            if isinstance(content, str) and content.strip():
-                parts.append("SDK documentation (native C++ KsAPI syntax; not the Python call signature):\n" + content.strip())
-            elif content:
-                parts.append(json.dumps(content, ensure_ascii=False))
-            md = self.markdown_path(page)
-            key = str(page.get("key") or "webhelp:" + str(page.get("source_html", "")))
-            anchor = str(page.get("markdown_fragment") or "page-" + hashlib.sha256(key.encode("utf-8")).hexdigest()[:16])
-            parts.append(f"Local documentation: [{page.get('title') or symbol}]({os.path.relpath(md, output.parent)}#{anchor})")
-            parts.append(f"Native documentation: {page.get('source_html', '')} (id: {page.get('id', page.get('key', ''))})")
+            title = str(page.get("title") or symbol)
+            # The signature already identifies the member; keep its description.
+            title = re.sub(r"^" + re.escape(symbol.rsplit(".", 1)[-1]) + r"\s+[-—–]\s+", "", title)
+            parts.append(title)
+            com = self.find_com(symbol)
+            if com is None and page.get("symbol") and page.get("symbol") != symbol:
+                com = self.find_com(str(page["symbol"]))
+            content, borrowed = merge_com_fallback(
+                str(page.get("content", "")),
+                str(com.get("content", "")) if com else None,
+            )
+            if borrowed:
+                self.stats["com_fallback_symbols"] += 1
+                self.stats["com_fallback_sections"] += len(borrowed)
+            if content and content != title:
+                parts.append(content)
         if method:
-            parts.append(python_argument_documentation(method, model))
-            parts.append(f"Python return: {method.result}. Wrapper arguments (including output initializers) are preserved.")
+            for binding in self.enum_bindings:
+                enum = self.enums[binding["enum"]]
+                if binding["symbol"] == method.symbol and enum["inline"]:
+                    mapping = "\n".join(f"{value} — {member}: {meaning}" for member, value, meaning in enum["rows"])
+                    parts.append(f"Допустимые значения {binding['parameter']} ({binding['enum']}):\n" + mapping)
+            notes = python_argument_documentation(method, model)
+            if notes:
+                parts.append(notes)
             for diagnostic in model.diagnostics:
                 if diagnostic["symbol"] == method.symbol and diagnostic.get("category"):
                     parts.append("Marshalling discrepancy: " + diagnostic["explanation"] + f" SDK: {diagnostic.get('sdk_spelling')}; ctypes: {diagnostic.get('ctypes_restype')}; Python: {diagnostic.get('python_type')}.")
-            if method.native_calls:
-                parts.append("Native symbols: " + ", ".join(method.native_calls))
-            parts.append(f"Python source: {model.source}:{method.node.lineno}")
-            if method.result.startswith("tuple["):
-                parts.append("Tuple order follows the Python return expression; ctypes reference arguments contribute their .value results.")
-            content = str(page.get("content", "")) if page else ""
-            unit_lines = [line.strip() for line in content.splitlines() if re.search(r"\b(?:mm|мм|rad|radians?|degrees?)\b|радиан|градус|единиц", line, re.I)]
-            if unit_lines:
-                parts.append("Units (native documentation): " + " ".join(unit_lines))
-            else:
-                parts.append("Units: not specified on the matched native page; consult the SDK contract rather than inferring units from Python scalar types.")
         return "\n\n".join(parts)
+
+    def class_sources(self, owner: str, output: Path, *, constants: bool = False) -> str:
+        """Attribute used Markdown documents once per class, not once per page."""
+        documents: dict[Path, str] = {}
+        matches = self.constant_matches if constants else self.matches
+        for symbol, page in matches.items():
+            if symbol != owner and not symbol.startswith(owner + "."):
+                continue
+            path = self.markdown_path(page)
+            page_owner = "Константы API" if constants else str(page.get("symbol") or owner).split(".")[0]
+            documents.setdefault(path, page_owner)
+        if not constants:
+            for binding in self.enum_bindings:
+                if binding["symbol"].startswith(owner + ".") and self.enums[binding["enum"]]["inline"]:
+                    documents.setdefault(self.markdown_path(self.enums[binding["enum"]]["page"]), "Константы API")
+        if not documents:
+            return ""
+        links = [f"- [{label}]({os.path.relpath(path, output.parent)})"
+                 for path, label in sorted(documents.items(), key=lambda item: str(item[0]))]
+        return "Источники SDK:\n" + "\n".join(links)
+
+
+def _normalize_doc_heading(line: str) -> str | None:
+    """Map a lone heading line to a canonical SDK section name, if known."""
+    stripped = re.sub(r"\s+:", ":", line.strip())
+    if not stripped.endswith(":"):
+        return None
+    key = stripped[:-1].strip().casefold()
+    return _COM_HEADING_ALIASES.get(key)
+
+
+def documentation_sections(content: str) -> dict[str, str]:
+    """Split page body into canonical section name → body (raw, unfiltered)."""
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    fence: str | None = None
+    for line in content.splitlines():
+        stripped = line.strip()
+        marker = re.match(r"^(`{3,}|~{3,})", stripped)
+        if marker:
+            token = marker.group(1)
+            if fence is None:
+                fence = token
+            elif token[0] == fence[0] and len(token) >= len(fence):
+                fence = None
+            if current is not None:
+                sections.setdefault(current, []).append(line)
+            continue
+        if fence is None:
+            canonical = _normalize_doc_heading(stripped)
+            if canonical is not None:
+                current = canonical
+                sections.setdefault(current, [])
+                continue
+            # Any other lone Title: heading ends the current fallback section.
+            if current is not None and re.fullmatch(r"[\w][\w ()/.-]*:", stripped):
+                current = None
+                continue
+        if current is not None:
+            sections.setdefault(current, []).append(line)
+    return {name: "\n".join(body).strip() for name, body in sections.items() if "\n".join(body).strip()}
+
+
+def merge_com_fallback(native_content: str, com_content: str | None) -> tuple[str, list[str]]:
+    """Append missing semantic sections from COM prose; return (text, borrowed headings)."""
+    native = semantic_documentation(native_content)
+    if not com_content:
+        return native, []
+    present = documentation_sections(native_content)
+    borrowed: list[str] = []
+    extras: list[str] = []
+    com_sections = documentation_sections(com_content)
+    for heading in COM_FALLBACK_CANONICAL:
+        if present.get(heading):
+            continue
+        body = com_sections.get(heading, "").strip()
+        if not body:
+            continue
+        extras.append(f"{heading}\n\n{body}")
+        borrowed.append(heading)
+    if not extras:
+        return native, []
+    merged = native + ("\n\n" if native else "") + "\n\n".join(extras)
+    return merged.strip(), borrowed
+
+
+def semantic_documentation(content: str) -> str:
+    """Keep SDK explanations verbatim, excluding signature and WebHelp navigation.
+
+    Full C++ declarations, hierarchy and navigation remain in the linked SDK
+    page. Unknown headings, code examples, tables and notes are not discarded.
+    """
+    headings = {"Синтаксис KsAPI:", "Иерархия:", "Подразделы:",
+                "Входные параметры:", "Возвращаемое значение:", "Примечание:",
+                "Определенные типы:", "Описание:", "Значение свойства:"}
+    navigation = {"Синтаксис KsAPI:", "Иерархия:", "Подразделы:"}
+    lines: list[str] = []
+    skipping = False
+    fence: str | None = None
+    for line in content.splitlines():
+        stripped = line.strip()
+        marker = re.match(r"^(`{3,}|~{3,})", stripped)
+        if marker:
+            token = marker.group(1)
+            if fence is None:
+                fence = token
+            elif token[0] == fence[0] and len(token) >= len(fence):
+                fence = None
+            if not skipping:
+                lines.append(line)
+            continue
+        if fence is None:
+            if stripped in headings:
+                skipping = stripped in navigation
+            elif skipping and re.fullmatch(r"[\w][\w ()/-]*:", stripped):
+                skipping = False
+            if re.fullmatch(r"\[Интерфейс\.{3}\]\(<[^>]+>\)", stripped):
+                continue
+        if not skipping:
+            lines.append(line)
+    return "\n".join(lines).strip()
 
 
 def python_argument_documentation(method: Method, model: NativeModel) -> str:
@@ -203,45 +578,53 @@ def python_argument_documentation(method: Method, model: NativeModel) -> str:
                 if parameter.get("name") == "self":
                     continue
                 if parameter.get("in") in (False, "False", "false"):
-                    add(expr, f"SDK output parameter {parameter.get('name')}; its Python argument is still an initializer supplied by the caller")
+                    add(expr, "initial value for an SDK output parameter; the caller must supply it")
         elif name == "GetReference" and node.args:
-            add(node.args[0], "GetReference converts None to native handle 0; other values must expose .reference")
+            add(node.args[0], "None is passed as native handle 0 (not necessarily valid for this operation)")
         elif name == "RefString" and node.args:
-            add(node.args[0], "initial text copied into RefString; returned .value is a Python str")
-        elif name.startswith("ctypes.c_") and node.args:
-            add(node.args[0], f"initial value copied into {name}; .value is read after the native call when returned")
-        elif name.startswith("To") and "Vector" in name and node.args:
-            add(node.args[-1], f"converted by {name}; the annotation does not establish which elements the native API considers semantically valid")
+            add(node.args[0], "initial text for a native string buffer")
+        elif name == "ToObjectReferenceVector" and node.args:
             helper = model.functions.get(name)
-            if name == "ToObjectReferenceVector" and helper is not None:
+            if helper is not None:
                 skips_none = any(isinstance(test, ast.Compare) and any(isinstance(op, (ast.NotEq, ast.IsNot)) for op in test.ops) and any(isinstance(value, ast.Constant) and value.value is None for value in test.comparators) for test in ast.walk(helper))
                 if skips_none:
-                    add(node.args[-1], "the installed ToObjectReferenceVector helper skips None elements rather than inserting null handles")
+                    add(node.args[-1], "None elements are skipped, not passed as null handles")
         elif name.endswith(".encode") and isinstance(node.func, ast.Attribute):
             encoding = dotted(node.args[0]) if node.args else "the default encoding"
             add(node.func.value, f"encoded to bytes with {encoding} before the native call")
 
-    positional = [*method.node.args.posonlyargs, *method.node.args.args]
-    defaults = dict(zip([arg.arg for arg in positional[-len(method.node.args.defaults):]], method.node.args.defaults)) if method.node.args.defaults else {}
-    defaults.update({arg.arg: default for arg, default in zip(method.node.args.kwonlyargs, method.node.args.kw_defaults) if default is not None})
-    lines = ["Python arguments:"]
-    if not notes:
-        lines.append("- No explicit arguments beyond self/cls.")
-    for name, typ in method.arguments.items():
-        default = f"; default {dotted(defaults[name])}" if name in defaults else "; required"
-        detail = "; ".join(notes[name]) or "passed according to the Python wrapper body; native semantics follow the SDK documentation"
-        lines.append(f"- {name}: {typ}{default}. {detail}.")
-        if "None" in typ and not any("GetReference converts None" in note for note in notes[name]):
-            lines.append("  Nullability describes SDK/type evidence only: acceptance of None depends on the actual conversion above; the generator does not infer semantic validity.")
-    returns = [dotted(node.value) for node in nodes if isinstance(node, ast.Return)]
-    if returns:
-        lines.append("Python return expression(s): " + "; ".join(returns))
-    return "\n".join(lines)
+    # Group identical conversion notes; types/defaults already live in the stub
+    # signature. Ordinary scalar arguments and return locals add no information.
+    grouped: dict[str, list[str]] = {}
+    for name, details in notes.items():
+        for detail in details:
+            grouped.setdefault(detail, []).append(name)
+    lines = [f"- {', '.join(names)}: {detail}." for detail, names in grouped.items()]
+    tuples = [node.value for node in nodes if isinstance(node, ast.Return) and isinstance(node.value, ast.Tuple)]
+    layouts: list[str] = []
+    for value in tuples:
+        labels = []
+        for index, item in enumerate(value.elts):
+            origins = roots(item)
+            if len(origins) == 1:
+                labels.append(next(iter(origins)))
+            elif index == 0 and method.result.startswith("tuple[bool,"):
+                labels.append("status")
+            else:
+                labels.append(dotted(item))
+        layout = "Returns: (" + ", ".join(labels) + ")."
+        if layout not in layouts:
+            layouts.append(layout)
+    if layouts:
+        lines.extend(layouts)
+    return "Python binding:\n" + "\n".join(lines) if lines else ""
 
 
 def doc_literal(text: str, indent: str) -> list[str]:
     if not text:
         return []
+    if "\n" not in text:
+        return [indent + json.dumps(text, ensure_ascii=False)]
     # A real multiline docstring, escaped without changing documentation content.
     text = text.replace("\\", "\\\\").replace('"""', '\\"\\"\\"').replace("\x00", "\\x00")
     return [indent + '\"\"\"' + text.splitlines()[0], *[indent + s for s in text.splitlines()[1:]], indent + '\"\"\"']
@@ -297,9 +680,29 @@ def constant_assignment(node: ast.Assign | ast.AnnAssign, indent: str = "", know
     return [indent + dotted(t) + ": Any = " + dotted(value) for t in targets if isinstance(t, ast.Name) and isinstance(value, (ast.UnaryOp, ast.BinOp, ast.Name, ast.Attribute))]
 
 
-def emit_constants(source: Path) -> str:
-    tree = ast.parse(source.read_text(encoding="utf-8-sig"), filename=str(source))
-    lines = ["# Generated from installed native Python; do not edit.", "from typing import Any, Literal", ""]
+def emit_constants(source: Path, docs: Documentation, output: Path) -> str:
+    source_text = source.read_text(encoding="utf-8-sig")
+    tree = ast.parse(source_text, filename=str(source))
+    comments = {token.start[0]: token.string.removeprefix("#").strip()
+                for token in tokenize.generate_tokens(io.StringIO(source_text).readline)
+                if token.type == tokenize.COMMENT}
+
+    def documented(node, owner, rendered):
+        result = []
+        for declaration in rendered:
+            result.append(declaration)
+            name = declaration.strip().split(":", 1)[0]
+            description = docs.constant_text(owner + "." + name, node.value, comments.get(node.end_lineno, ""))
+            if description:
+                indent = declaration[:len(declaration) - len(declaration.lstrip())]
+                result.append(indent + json.dumps(description, ensure_ascii=False))
+        return result
+
+    enums = {name: enum for name, enum in docs.enums.items()
+             if enum["module"] == source.stem and not enum["inline"]}
+    for name, enum in enums.items():
+        docs.constant_matches[source.stem + ".constants." + name] = enum["page"]
+    lines = ["# Generated from installed native Python and SDK documentation; do not edit.", "from typing import Any, Literal, TypeAlias", ""]
     for node in effective(tree.body):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             lines.append(dotted(node))
@@ -310,15 +713,26 @@ def emit_constants(source: Path) -> str:
             for item in node.body:
                 if isinstance(item, (ast.Assign, ast.AnnAssign)):
                     rendered = constant_assignment(item, "    ", known_integers)
-                    members.extend(rendered)
+                    members.extend(documented(item, source.stem + "." + node.name, rendered))
                     scalar_integer = isinstance(item.value, ast.Constant) and type(item.value.value) in {int, bool}
                     signed_integer = isinstance(item.value, ast.UnaryOp) and isinstance(item.value.operand, ast.Constant) and type(item.value.operand.value) is int
                     if rendered and (": int = " in rendered[0] or scalar_integer or signed_integer):
                         targets = item.targets if isinstance(item, ast.Assign) else [item.target]
                         known_integers.update(target.id for target in targets if isinstance(target, ast.Name))
+            sources = docs.class_sources(source.stem + "." + node.name, output, constants=True)
+            lines.extend(doc_literal(sources, "    "))
             lines.extend(members or ["    ..."])
         elif isinstance(node, (ast.Assign, ast.AnnAssign)):
-            lines.extend(constant_assignment(node))
+            lines.extend(documented(node, source.stem, constant_assignment(node)))
+    for name, enum in enums.items():
+        target = "Literal[" + ", ".join(map(str, enum["values"])) + "]" if enum["closed"] else "int"
+        ordered = sorted(enum["rows"], key=lambda row: (row[1], row[0]))
+        first, last = ordered[0][0], ordered[-1][0]
+        span = f"{source.stem}.constants.{first}" + (f" … {last}" if first != last else "")
+        lines.extend(["", f"# {span}", f"{name}: TypeAlias = {target}"])
+        description = re.sub(r"^" + re.escape(name) + r"\s*[-—–]\s*", "", enum["page"]["title"])
+        mapping = [f"{value} — {member}: {meaning}" for member, value, meaning in enum["rows"]]
+        lines.extend(doc_literal(description + "\n\n" + "\n".join(mapping), ""))
     text = "\n".join(lines) + "\n"
     ast.parse(text)
     return text
@@ -326,11 +740,17 @@ def emit_constants(source: Path) -> str:
 
 def emit_native(model: NativeModel, docs: Documentation, output: Path) -> str:
     model.analyze_all()
+    docs.prepare_enums(model)
     lines = ["# Generated offline from installed native wrappers and structured SDK metadata.",
              "from __future__ import annotations", "import ctypes", "from _ctypes import CFuncPtr", "import os", "import pathlib",
              "from typing import Any, Callable, Literal, TypeAlias, TypeVar", "from types import TracebackType",
              "from weakref import ref as WeakRef, finalize as Finalize", "from constants import constants as constants", ""]
-    known = set(model.classes) | set(model.functions) | set(model.callbacks) | {"constants", "ctypes", "os", "pathlib", "True", "False", "None"}
+    used_enums = {binding["enum"] for binding in docs.enum_bindings if not docs.enums[binding["enum"]]["inline"]}
+    for module in ("constants", "constants3d"):
+        names = sorted(name for name in used_enums if docs.enums[name]["module"] == module)
+        if names:
+            lines.append("from " + module + " import " + ", ".join(names))
+    known = set(model.classes) | set(model.functions) | set(model.callbacks) | used_enums | {"constants", "ctypes", "os", "pathlib", "True", "False", "None"}
     # CFUNCTYPE exports are factories at runtime, not instantiable typing aliases.
     for name, typ in model.callbacks.items():
         lines.append(f"def {name}(callback: {typ}) -> CFuncPtr: ...")
@@ -341,7 +761,11 @@ def emit_native(model: NativeModel, docs: Documentation, output: Path) -> str:
             for decorator in item.decorator_list:
                 lines.append("@" + dotted(decorator))
             lines.append(f"class {item.name}{bases}:")
-            lines.extend(doc_literal(docs.text(item.name, model, output), "    "))
+            class_text = docs.text(item.name, model, output)
+            method_texts = {key: docs.text(method.symbol, model, output, method)
+                            for key, method in model.methods.items() if method.owner == item.name}
+            sources = docs.class_sources(item.name, output)
+            lines.extend(doc_literal("\n\n".join(part for part in (class_text, sources) if part), "    "))
             attr_names = {dotted(t) for n in item.body if isinstance(n, ast.Assign) for t in n.targets}
             properties = {n.name for n in item.body if isinstance(n, ast.FunctionDef) and any(dotted(d) == "property" for d in n.decorator_list)}
             instance_attrs: dict[str, str] = {}
@@ -362,7 +786,7 @@ def emit_native(model: NativeModel, docs: Documentation, output: Path) -> str:
                     for decorator in node.decorator_list:
                         lines.append("    @" + dotted(decorator))
                     lines.append("    " + method_signature(method, known))
-                    text = docs.text(method.symbol, model, output, method)
+                    text = method_texts[method_key]
                     source_doc = ast.get_docstring(node)
                     if source_doc:
                         text = source_doc + "\n\n" + text

@@ -18,32 +18,104 @@ their point indices and drawing IDs are explicitly checked (not guessed).
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 import json
 import math
 from pathlib import Path
 import tempfile
 import time
+from typing import NotRequired, TypeVar, TypedDict, Unpack
 
 import ksapi
-from constants import constants as c
+from constants import constants as c, ksConstraintTypeEnum, ksLineDimensionOrientationEnum
 from constants3d import constants as c3d
 
 TOL = 1e-5
+T = TypeVar("T")
+DrawingT = TypeVar("DrawingT", bound=ksapi.IDrawingObject)
+Point2 = tuple[float, float]
+Point3 = tuple[float, float, float]
+Bounds = tuple[float, float, float, float, float, float]
 
 
-def require(value, message):
+class Network(TypedDict):
+    sketch: ksapi.ISketch
+    line_ids: list[int]
+    hole_id: int
+    dimension_ids: dict[str, int]
+    operation: ksapi.IExtrusion
+    doc3d: NotRequired[ksapi.IKompasDocument3D]
+
+
+class Validation(TypedDict):
+    bounds: Bounds
+    hole: Point3
+    feature_errors: list[tuple[str, int]]
+
+
+class ConstraintEvidence(TypedDict):
+    type: int
+    valid: bool
+    index: NotRequired[int]
+    partner_index: NotRequired[int]
+
+
+class DimensionEvidence(TypedDict):
+    name: str
+    variable: str
+    value: float
+    constraints: list[int]
+
+
+class Evidence(TypedDict, total=False):
+    constraint_state: int
+    type: int
+    variable: str | None
+    created: bool
+    name: str
+    constraints: list[ConstraintEvidence]
+    vertices: list[Point2]
+    closure: bool
+    perpendicularity: bool
+    parallelism: bool
+    minimal_anchor: bool
+    hole_relation: str
+    dimensions: list[DimensionEvidence]
+    dimension: str
+    old: float
+    requested: float | None
+    expression: str
+    readback: float
+    edit: str | None
+    bounds: Bounds
+    hole: Point3
+    feature_errors: list[tuple[str, int]]
+    scratch: str
+    native: str
+    jpg: str
+    both_absent: bool
+    native_bytes: int
+    jpg_exported: bool
+    qualified: list[str]
+    not_qualified: list[str]
+    wall_seconds: float
+    own_document_closed: bool
+    previous_active_restored: bool
+
+
+def require(value: T | None, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
 
 
-def evidence(label, **values):
+def evidence(label: str, **values: Unpack[Evidence]) -> None:
     print(json.dumps({"stage": label, **values}, ensure_ascii=False), flush=True)
 
 
 @contextmanager
-def edit(sketch):
+def edit(sketch: ksapi.ISketch) -> Iterator[tuple[ksapi.IKompasDocument2D, ksapi.IView]]:
     fragment = require(sketch.BeginEdit(False), "BeginEdit")
     try:
         fragment.SetParametricMode(True)
@@ -57,7 +129,16 @@ def edit(sketch):
     require(state == c.ksStateWellConstrained, f"Sketch not fully defined: {state}")
 
 
-def constraint(obj, kind, *, partners=(), index=None, partner_index=None, name=None, value=None):
+def constraint(
+    obj: ksapi.IDrawingObject,
+    kind: ksConstraintTypeEnum,
+    *,
+    partners: Sequence[ksapi.IDrawingObject] = (),
+    index: int | None = None,
+    partner_index: int | None = None,
+    name: str | None = None,
+    value: float | None = None,
+) -> ksapi.IParametricConstraint:
     item = require(obj.NewConstraint(), "NewConstraint")
     item.SetConstraintType(kind)
     if index is not None:
@@ -76,13 +157,20 @@ def constraint(obj, kind, *, partners=(), index=None, partner_index=None, name=N
     return item
 
 
-def driving_dimension(dim, name, value):
+def driving_dimension(dim: DrawingT, name: str, value: float) -> DrawingT:
     constraint(dim, c.ksCFixedDim)
     constraint(dim, c.ksCDimWithVariable, name=name, value=value)
     return dim
 
 
-def linear_dimension(symbols, points, orientation, partners, name, value):
+def linear_dimension(
+    symbols: ksapi.ISymbols2DContainer,
+    points: Sequence[Point2],
+    orientation: ksLineDimensionOrientationEnum,
+    partners: Sequence[tuple[ksapi.IDrawingObject, int]],
+    name: str,
+    value: float,
+) -> ksapi.ILineDimension:
     dim = require(symbols.GetLineDimensions().Add(), "Linear dimension")
     (x1, y1), (x2, y2), (x3, y3) = points
     dim.SetX1(x1)
@@ -105,7 +193,7 @@ def linear_dimension(symbols, points, orientation, partners, name, value):
     return driving_dimension(dim, name, value)
 
 
-def build(part, model):
+def build(part: ksapi.IPart, model: ksapi.IModelContainer) -> Network:
     """Four independent segments, four coincidences, H/V, one anchored point."""
     sketch = require(model.GetSketchs().Add(), "Sketch")
     sketch.SetName("Native dimension network")
@@ -161,13 +249,17 @@ def build(part, model):
     return {"sketch": sketch, "line_ids": line_ids, "hole_id": hole_id, "dimension_ids": dimension_ids, "operation": operation}
 
 
-def drawing_object(fragment, object_id, interface):
+def drawing_object(
+    fragment: ksapi.IKompasDocument2D,
+    object_id: int,
+    interface: Callable[[ksapi.IKompasAPIObject], DrawingT],
+) -> DrawingT:
     # BeginEdit creates a fresh fragment; its old drawing references are invalid.
     obj = require(fragment.GetObjectById(object_id), f"Drawing object ID {object_id}")
     return require(interface(obj), f"Drawing interface ID {object_id}")
 
 
-def close_values(actual, expected, message):
+def close_values(actual: Sequence[float], expected: Sequence[float], message: str) -> None:
     require(len(actual) == len(expected) and all(math.isfinite(a) and abs(a - b) <= TOL for a, b in zip(actual, expected)), f"{message}: {actual}; expected {expected}")
 
 
@@ -215,7 +307,7 @@ def validate(part):
     return {"bounds": tuple(bounds[1:]), "hole": cylinders[0], "feature_errors": errors}
 
 
-def check_sketch(network, width, height, radius):
+def check_sketch(network: Network, width: float, height: float, radius: float) -> None:
     sketch = network["sketch"]
     with edit(sketch) as (fragment, view):
         lines = [drawing_object(fragment, object_id, ksapi.ILineSegment) for object_id in network["line_ids"]]
@@ -243,7 +335,7 @@ def check_sketch(network, width, height, radius):
         evidence("sketch-geometry", vertices=starts, closure=True, perpendicularity=True, parallelism=True, minimal_anchor=True, hole_relation="11 mm from left, 9 mm from bottom", dimensions=rows)
 
 
-def edit_dimension(network, name, value):
+def edit_dimension(network: Network, name: str, value: float) -> None:
     """Change the source sketch variable outside its temporary 2D edit fragment."""
     variable_name = {"width": "plate_width", "height": "plate_height", "radius": "hole_radius", "hole_x": "hole_x", "hole_y": "hole_y"}[name]
     feature = require(ksapi.IFeature(network["sketch"]), "Sketch feature")
@@ -258,7 +350,7 @@ def edit_dimension(network, name, value):
     close_values((variable.GetValue(),), (value,), "Variable readback")
 
 
-def qualify(part, network):
+def qualify(part: ksapi.IPart, network: Network) -> Validation:
     cases = [(None, None, 43., 27., 3.5), ("width", 51., 51., 27., 3.5), ("width", 43., 43., 27., 3.5), ("radius", 4., 43., 27., 4.), ("radius", 3.5, 43., 27., 3.5)]
     for name, value, width, height, radius in cases:
         if name:
@@ -272,13 +364,13 @@ def qualify(part, network):
     return result
 
 
-def absent(paths):
+def absent(paths: Sequence[Path]) -> None:
     for path in paths:
         if path.exists() or path.is_symlink():
             raise FileExistsError(f"Refusing existing output: {path}")
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="New .m3d path; absent means scratch qualification")
     args = parser.parse_args(argv)
