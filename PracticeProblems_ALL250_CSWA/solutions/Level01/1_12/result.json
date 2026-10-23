@@ -1,0 +1,57 @@
+{
+  "task": "1.12",
+  "status": "passed",
+  "title": "Practice Problem 1.12 — угловой кронштейн с косынкой",
+  "script": "solution.py",
+  "model": "attempt-lvk36x9j/model.m3d",
+  "volume_mm3": 177233.40734641024,
+  "reference_volume": 177233,
+  "reference_units": "mm3",
+  "volume_passed": true,
+  "checks": [
+    {
+      "check": "fully_defined_sketch",
+      "name": "Основание и отверстие Ø20",
+      "state": 1,
+      "passed": true
+    },
+    {
+      "check": "fully_defined_sketch",
+      "name": "Сечение задней стенки 125×10",
+      "state": 1,
+      "passed": true
+    },
+    {
+      "check": "fully_defined_sketch",
+      "name": "Боковая косынка, профиль 75×65",
+      "state": 1,
+      "passed": true
+    },
+    {
+      "check": "native_tree_and_solid",
+      "feature_errors": [],
+      "solid_count": 1,
+      "passed": true
+    },
+    {
+      "check": "volume_rounding_interval_mm3",
+      "length_units_readback": 1,
+      "interval": [
+        177232.5,
+        177233.5
+      ],
+      "actual": 177233.40734641024,
+      "passed": true
+    },
+    {
+      "check": "native_save_new_path",
+      "passed": true
+    },
+    {
+      "check": "own_document_closed",
+      "passed": true
+    }
+  ],
+  "limitations": [],
+  "tree": "Основание 125×75×10 с Ø20 → задняя стенка 125×10, высота 65 → боковая косынка 10, скос от (10,65) до (75,10)"
+}

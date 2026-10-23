@@ -1,0 +1,30 @@
+{
+  "task": "1.15",
+  "status": "passed",
+  "title": "SOLIDWORKS Practice Problem 1.15 — Basic Sketch & Extrusion",
+  "script": "solution.py",
+  "model": "attempt-1fft4qyu/model.m3d",
+  "volume_mm3": 45866.9182795364,
+  "reference_volume": 45867,
+  "reference_units": "mm3",
+  "volume_passed": true,
+  "checks": [
+    "01 Web — 40, 65, 35, 10, 30°: native driving dimensions/geometric constraints, state=1 (fully defined), no total fixation.",
+    "01 Web thickness 20 mm: native extrusion Update succeeded.",
+    "02 Upper lug — 45, R7, 65°, Ø6: native driving dimensions/geometric constraints, state=1 (fully defined), no total fixation.",
+    "02 Upper lug thickness 5 mm: native extrusion Update succeeded.",
+    "03 Lower lug — 40+15, R7, Ø7: native driving dimensions/geometric constraints, state=1 (fully defined), no total fixation.",
+    "03 Lower lug thickness 5 mm: native extrusion Update succeeded.",
+    "Rebuild succeeded; one solid body.",
+    "No native feature-tree operation errors.",
+    "IMassInertiaParam.SetLengthUnits(c.ksLUnMM); GetLengthUnits()=1.",
+    "Native volume 45866.918279536 mm3; reference interval [45866.5,45867.5): True.",
+    "SaveAs succeeded to a previously absent attempt-*/model.m3d; file is nonempty.",
+    "Own document closed in finally; no foreign document modified or closed."
+  ],
+  "limitations": [
+    "The upper root X position and web foot height are native driving dimensions initialized from the drawing geometry (10+30*tan(30 degrees), 2*R7); they are not cross-sketch associative expressions.",
+    "No dimension-change test, reopen, preview or export was performed, as requested."
+  ],
+  "tree": "Web sketch → extrusion 20; upper lug sketch with Ø6 → extrusion 5 reverse; offset plane 20; lower lug sketch with Ø7 → extrusion 5."
+}

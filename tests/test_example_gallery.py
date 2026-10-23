@@ -175,6 +175,29 @@ class RasterSafetyTests(unittest.TestCase):
             doc.SaveAsToRasterFormat.assert_not_called()
             self.assertEqual(target.read_bytes(), b"another writer")
 
+    def test_explicit_view_scheme_is_applied_before_projection_lookup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            doc = Mock()
+            manager = self.namespace["ksapi"].IKompasDocument3D.return_value.GetViewProjectionManager.return_value
+            manager.GetViewProjectionScheme.return_value = 4
+            manager.GetCount.side_effect = RuntimeError("stop before export")
+            with self.assertRaisesRegex(RuntimeError, "stop before export"):
+                self.capture(doc, Path(directory) / "preview.jpg", view_scheme=4)
+            manager.SetViewProjectionScheme.assert_called_once_with(4)
+            self.assertLess(manager.mock_calls.index(unittest.mock.call.SetViewProjectionScheme(4)),
+                            manager.mock_calls.index(unittest.mock.call.GetCount()))
+            doc.SaveAs.assert_not_called()
+
+    def test_failed_view_scheme_readback_stops_export(self):
+        with tempfile.TemporaryDirectory() as directory:
+            doc = Mock()
+            manager = self.namespace["ksapi"].IKompasDocument3D.return_value.GetViewProjectionManager.return_value
+            manager.GetViewProjectionScheme.return_value = 2
+            with self.assertRaisesRegex(RuntimeError, "Схема ориентаций не применилась"):
+                self.capture(doc, Path(directory) / "preview.jpg", view_scheme=4)
+            manager.GetCount.assert_not_called()
+            doc.SaveAsToRasterFormat.assert_not_called()
+
     def test_volume_rejects_wrong_units_before_calculation(self):
         tree = ast.parse(RUNNER.read_text())
         function = next(node for node in tree.body

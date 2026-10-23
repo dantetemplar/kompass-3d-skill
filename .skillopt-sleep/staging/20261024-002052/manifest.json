@@ -1,0 +1,11 @@
+{
+  "schema": "skillopt-sleep-staging",
+  "schema_version": 2,
+  "live_skill_path": "/home/dante/Projects/dantetemplar/kompass-3d-skill/skills/kompass-3d-skill/SKILL.md",
+  "live_memory_path": "/home/dante/Projects/dantetemplar/kompass-3d-skill/CLAUDE.md",
+  "has_skill": false,
+  "has_memory": false,
+  "has_managed_skill": false,
+  "has_managed_memory": false,
+  "accepted": false
+}

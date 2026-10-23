@@ -47,8 +47,8 @@ def document_ids(app):
     return [documents.GetItem(i).reference for i in range(1, documents.GetCount() + 1)]
 
 
-def capture(doc, target):
-    """Штатный JPEG в новый путь; существующие файлы и ссылки не заменяются."""
+def capture(doc, target, *, view_scheme=None):
+    """Штатный JPEG в новый путь; необязательная схема осей только для ракурса."""
     target = Path(target).expanduser().absolute()
     if target.exists() or target.is_symlink():
         raise FileExistsError(f"Не перезаписываем JPEG: {target}")
@@ -56,6 +56,9 @@ def capture(doc, target):
     doc.SetActive()
     doc3d = ksapi.IKompasDocument3D(doc)
     manager = doc3d.GetViewProjectionManager()
+    if view_scheme is not None:
+        manager.SetViewProjectionScheme(view_scheme)
+        require(manager.GetViewProjectionScheme() == view_scheme, "Схема ориентаций не применилась")
     projections = [manager.GetViewProjection(i) for i in range(manager.GetCount())]
     isometric = [v for v in projections if v and v.GetViewProjectonType() == c3d.ksVPIsometric]
     require(len(isometric) == 1, "Не найдена стандартная изометрия")

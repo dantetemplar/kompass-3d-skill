@@ -1,0 +1,27 @@
+{
+  "task": "1.4",
+  "agent_id": "450964ef-29d7-49ae-87e6-b44d15216e31",
+  "status": "completed",
+  "skill_commit": "a89d91a75518d74e979d78ca213b38966f10f1fc",
+  "timing": {
+    "status": "estimated",
+    "started_at": "2026-10-21T02:15:00+03:00",
+    "finished_at": "2026-10-21T02:25:00+03:00",
+    "elapsed_seconds": 600,
+    "scope": "От первой передачи исполнителю до завершения; без экспорта превью",
+    "source": "1f8fdc67-5859-46a7-ac62-d2f948f56667.jsonl:L450,L470; subagents/450964ef-29d7-49ae-87e6-b44d15216e31.jsonl:L1",
+    "note": "Ретроспективная оценка: начало — минутная метка первой передачи в журнале исполнителя; конец — минутная метка уведомления оркестратору о финальном завершении. Точные секунды не записаны: квантование каждой границы до 60 с, разности до 120 с; дополнительная задержка передачи/доставки уведомления неизвестна и в эту погрешность не входит. Включены все попытки, продолжения, ожидания и паузы; экспорт превью исключён.",
+    "evidence": {
+      "timestamp_resolution_seconds": 60,
+      "additional_notification_delay_seconds": null,
+      "start_event": "initial_executor_task_delivery",
+      "finish_event": "final_executor_completion_notification",
+      "parent_launch_line": 450,
+      "parent_completion_line": 470,
+      "preceding_parent_timestamp_line": 441,
+      "preceding_parent_timestamp": "2026-10-21T02:13:00+03:00",
+      "executor_initial_timestamp_line": 1,
+      "executor_resume_timestamps": []
+    }
+  }
+}

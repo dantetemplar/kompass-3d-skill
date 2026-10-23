@@ -1,0 +1,23 @@
+{
+  "task": "2.10",
+  "status": "passed",
+  "title": "Плоский секторный рычаг с двумя отверстиями",
+  "script": "solution.py",
+  "model": "attempt-4j_uvlmu/model.m3d",
+  "volume_mm3": 36748.29155351596,
+  "reference_volume": 36748,
+  "reference_units": "mm3",
+  "volume_passed": true,
+  "checks": [
+    "Состояние размерного эскиза после EndEdit: 1 (WellConstrained=1)",
+    "Нативное выдавливание замкнутых дуговых контуров на 7 мм: Update=True",
+    "Перестроение успешно; ошибки эскиза и операций отсутствуют",
+    "Получено одно твёрдое тело",
+    "МЦХ: SetLengthUnits(ksLUnMM), GetLengthUnits=1; Calculate=True; объём=36748.291553516 мм³",
+    "Сравнение [36747.5,36748.5): True",
+    "SaveAs в ранее отсутствовавший attempt-*/model.m3d успешен; файл непустой",
+    "Собственный документ закрыт в finally; чужие документы не изменялись"
+  ],
+  "limitations": [],
+  "tree": "Эскиз дуг и отрезков с R6 и отверстиями → выдавливание 7 мм"
+}

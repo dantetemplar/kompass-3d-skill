@@ -1,0 +1,19 @@
+{
+  "task": "1.5",
+  "status": "failed",
+  "title": "Комбинированный гаечный ключ",
+  "script": "solution.py",
+  "model": null,
+  "volume_mm3": null,
+  "reference_volume": 0.5492,
+  "reference_units": "in3",
+  "volume_passed": null,
+  "checks": [
+    "Собственный документ закрыт в finally; чужие документы не изменялись и не закрывались."
+  ],
+  "limitations": [
+    "Построение/проверка остановлена: RuntimeError: Constraint 11, variable=None, object=4294967308, index=0, partner=4294967306, partner_index=0",
+    "Traceback (most recent call last):\n  File \"/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/solutions/Level01/1_5/solution.py\", line 263, in main\n    sketch,operation,state=build(part,need(part.GetModelContainer(),\"Model container\"))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/solutions/Level01/1_5/solution.py\", line 172, in build\n    link(axis,c.ksCMergePoints,edges[9],0,0)\n  File \"/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/solutions/Level01/1_5/solution.py\", line 71, in link\n    need(created and item.IsValid(), f\"Constraint {kind}, variable={name}, object={obj.GetId()}, index={index}, partner={partner.GetId() if partner else None}, partner_index={partner_index}\")\n  File \"/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/solutions/Level01/1_5/solution.py\", line 30, in need\n    raise RuntimeError(message)\nRuntimeError: Constraint 11, variable=None, object=4294967308, index=0, partner=4294967306, partner_index=0\n"
+  ],
+  "tree": "Размерный эскиз контура и правильного шестигранника → выдавливание 7.62 мм"
+}

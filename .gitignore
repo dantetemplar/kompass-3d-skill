@@ -6,3 +6,10 @@ __pycache__/
 *~
 .DS_Store
 PracticeProblems_ALL250_CSWA/**/*.pdf
+# Reproducible worker inputs; retain outputs and scrubbed traces.
+PracticeProblems_ALL250_CSWA/skillopt-runs/*/*/workspace/skill/
+PracticeProblems_ALL250_CSWA/skillopt-runs/*/*/workspace/input/
+PracticeProblems_ALL250_CSWA/skillopt-runs/*/*/sessions/
+# Byte-identical curated teacher inputs; preserve teacher outputs and scrubbed traces.
+PracticeProblems_ALL250_CSWA/skillopt-runs/**/teacher-pi/evidence/
+PracticeProblems_ALL250_CSWA/skillopt-runs/**/reflection/pi-call-*/evidence/

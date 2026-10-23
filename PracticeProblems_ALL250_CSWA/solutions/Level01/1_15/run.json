@@ -1,0 +1,33 @@
+{
+  "task": "1.15",
+  "agent_id": "1800a690-1cf4-441c-9ab0-78f101927fbf",
+  "status": "passed",
+  "follow_up": "После blocked выполнен повторный разбор чертежа и исходного превью с прямыми file_attachments; сохранена attempt-1fft4qyu/model.m3d, эталонный объём подтверждён. Ограничение межэскизной ассоциативности записано в result.json.",
+  "skill_commit": "a89d91a75518d74e979d78ca213b38966f10f1fc",
+  "timing": {
+    "status": "estimated",
+    "started_at": "2026-10-21T04:55:00+03:00",
+    "finished_at": "2026-10-21T05:20:00+03:00",
+    "elapsed_seconds": 1500,
+    "scope": "От первой передачи исполнителю до завершения; без экспорта превью",
+    "source": "1f8fdc67-5859-46a7-ac62-d2f948f56667.jsonl:L690,L715; subagents/1800a690-1cf4-441c-9ab0-78f101927fbf.jsonl:L1",
+    "note": "Ретроспективная оценка: начало — минутная метка первой передачи в журнале исполнителя; конец — минутная метка уведомления оркестратору о финальном завершении. Точные секунды не записаны: квантование каждой границы до 60 с, разности до 120 с; дополнительная задержка передачи/доставки уведомления неизвестна и в эту погрешность не входит. Включены все попытки, продолжения, ожидания и паузы; экспорт превью исключён. Возобновления не обнуляют начало: 2026-10-21T05:04:00+03:00. Включены первоначальная blocked-попытка и продолжение после повторной передачи изображений.",
+    "evidence": {
+      "timestamp_resolution_seconds": 60,
+      "additional_notification_delay_seconds": null,
+      "start_event": "initial_executor_task_delivery",
+      "finish_event": "final_executor_completion_notification",
+      "parent_launch_line": 690,
+      "parent_completion_line": 715,
+      "preceding_parent_timestamp_line": 683,
+      "preceding_parent_timestamp": "2026-10-21T04:54:00+03:00",
+      "executor_initial_timestamp_line": 1,
+      "executor_resume_timestamps": [
+        {
+          "line": 31,
+          "timestamp": "2026-10-21T05:04:00+03:00"
+        }
+      ]
+    }
+  }
+}

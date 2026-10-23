@@ -1,0 +1,88 @@
+{
+  "night": 1,
+  "backend": "cursor",
+  "opencode_tool_replay": false,
+  "gate_mode": "on",
+  "gate_no_regression": false,
+  "n_tasks": 2,
+  "baseline_score": 0.04,
+  "candidate_score": 0.04,
+  "accepted": false,
+  "gate_action": "reject",
+  "holdout_leaked": false,
+  "n_applied_edits": 0,
+  "n_rejected_edits": 8,
+  "n_unmatched_edits": 0,
+  "call_error": "",
+  "reflect_raw_head": "",
+  "holdout_detail": [
+    {
+      "id": "llm_f0d032b257cd",
+      "reference_kind": "rubric",
+      "hard": 0.0,
+      "soft": 0.08,
+      "response_len": 4176,
+      "response_head": "Checking the workspace for model context and relevant code.\n\n\n# Fixing stepped transitions, adding fillets/chamfers, and verifying the model\n\n## 1. Scope the change (before code)\n\nWrite a short **add ",
+      "why": "The rubric requires actually removing the stepped geometry, applying fillet/chamfer features to the indicated part, rebuilding the assembly, and reporting an error-free rebuild plus a successful save."
+    }
+  ],
+  "gate_trials": [
+    {
+      "target": "skill",
+      "baseline_score": 0.04,
+      "candidate_score": 0.04,
+      "accepted": false,
+      "blocked_by_regression": false,
+      "task_deltas": [
+        {
+          "task_id": "llm_f0d032b257cd",
+          "tags": [
+            "mined:llm"
+          ],
+          "baseline_score": 0.04,
+          "candidate_score": 0.04,
+          "status": "unchanged",
+          "scores_are_finite": true
+        }
+      ]
+    },
+    {
+      "target": "memory",
+      "baseline_score": 0.04,
+      "candidate_score": 0.025,
+      "accepted": false,
+      "blocked_by_regression": false,
+      "task_deltas": [
+        {
+          "task_id": "llm_f0d032b257cd",
+          "tags": [
+            "mined:llm"
+          ],
+          "baseline_score": 0.04,
+          "candidate_score": 0.025,
+          "status": "regressed",
+          "scores_are_finite": true
+        }
+      ]
+    },
+    {
+      "target": "final",
+      "baseline_score": 0.04,
+      "candidate_score": 0.04,
+      "accepted": false,
+      "blocked_by_regression": false,
+      "task_deltas": [
+        {
+          "task_id": "llm_f0d032b257cd",
+          "tags": [
+            "mined:llm"
+          ],
+          "baseline_score": 0.04,
+          "candidate_score": 0.04,
+          "status": "unchanged",
+          "scores_are_finite": true
+        }
+      ]
+    }
+  ]
+}

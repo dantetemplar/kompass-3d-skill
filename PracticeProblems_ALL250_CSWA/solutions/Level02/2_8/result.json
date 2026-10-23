@@ -1,0 +1,25 @@
+{
+  "task": "2.8",
+  "status": "passed",
+  "title": "SOLIDWORKS Practice Problem 2.8 — треугольная рамка",
+  "script": "solution.py",
+  "model": "attempt-gz2wx6rr/model.m3d",
+  "volume_mm3": 118439.97280088704,
+  "reference_volume": 118440,
+  "reference_units": "mm3",
+  "volume_passed": true,
+  "checks": [
+    "Эскиз полностью определён: GetConstraintsState=1; совпадения, H/V, касания, параллельность, равные R6 и управляющие размеры; фиксирована только точка начала.",
+    "Выдавливание 12 мм и RebuildModel выполнены успешно.",
+    "Получено одно твёрдое тело.",
+    "GetObjectError=0 во всём нативном дереве.",
+    "IMassInertiaParam: SetLengthUnits(ksLUnMM), GetLengthUnits=1; Calculate и IsActual успешны; V=118439.972800887 мм³.",
+    "Сравнение с [118439.5, 118440.5): True.",
+    "SaveAs в новый отсутствовавший путь успешен; .m3d существует и непуст; GetFullPath совпадает.",
+    "Собственный документ закрыт в finally; чужие документы не изменялись."
+  ],
+  "limitations": [
+    "По заданию не выполнялись изменение размеров, повторное открытие, превью и экспорт."
+  ],
+  "tree": "Эскиз: наружный пятиугольник + смещённый внутренний контур с тремя R6 → выдавливание 12 мм"
+}

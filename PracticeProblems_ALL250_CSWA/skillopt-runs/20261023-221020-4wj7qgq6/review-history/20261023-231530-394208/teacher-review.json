@@ -1,0 +1,28 @@
+{
+  "teacher_model": "qgm-6.1-sol",
+  "verification_sha256": "ca9b840ce0b2e9163ce18fe09d9dd6b6afb34d1b5332a6beeda52b031f01a273",
+  "model_sha256": "3f41cc4c4ebf3344799874536eb23f485ce4399f80e15d3e015b70dfc560c34a",
+  "code_sha256": "8a28e301bdcb9500569b1b5258e1e98a2757adfdacaf45e994345190813a7ec9",
+  "image_sha256": {
+    "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/Level01_BasicSketch/PracticeProblems_1_1_ENG.jpg": "1f0abb7c9a0f3fa7959853cd7ca60a511be561fd4e4c7ef3fb76413f9cfabc8b",
+    "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261023-221020-4wj7qgq6/baseline/verification/model.jpg": "e95761cba8db41bb788c481ea45ac06a561e6c9523d1f58e24a030e5c9b58d35"
+  },
+  "status": "passed",
+  "passed": true,
+  "score": 1.0,
+  "blockers": [],
+  "visual_checked": true,
+  "dimensional_intent_checked": true,
+  "origin_checked": true,
+  "notes": [
+    "Read task.md, solution.py, verification.json, and relevant worker-trace.jsonl records; viewed the actual pixels of drawing.jpg and model.jpg.",
+    "The drawing shows a brown rectangular base, a tall left-hand tower descending through two intermediate steps, an exposed ledge along the base, and a circular opening near the right end of the broad base face. The gray model shows the corresponding stepped outline, rectangular base and single circular opening, with colored datum-plane overlays. Its viewing orientation lays the staircase toward the lower left and displays the hole-bearing face upward; this is a viewing rotation, not evidence of different geometry.",
+    "The modeled dimensions match the drawing: base 60 × 28 × 30 mm; overall height 75 mm; upper depth 20 mm, leaving an 8 mm ledge; tower width 20 mm; next width 12 mm; final upper width 16 mm derived from 60−20−12−12. Intermediate top elevations are 50 and 38 mm, giving the specified 20 mm rise above the base and 12 mm drop between steps.",
+    "The hole is modeled as an inner circular loop in the base extrusion: radius 6 mm, center X=44 and Z=16, extending through the 28 mm depth along Y. This gives diameter 12 mm and the specified 16 mm offsets from the right edge and bottom. Worker execution records report successful cylindrical-wall and rim checks; these detailed checks are worker evidence rather than independent verifier measurements.",
+    "Independently read the red origin markers: the front elevation places the origin at the bottom-left base corner, and the plan places it at the upper-left footprint corner, on the side occupied by the upper structure. Together these identify the back-left-bottom corner under the solution's coordinate convention. The code places that corner at (0,0,0), with positive X across the width, positive Y toward the exposed ledge, and positive Z upward. The verifier's unverified 'right front' wording is not supported by the actual red markers.",
+    "Sketch intent is dimension-driven rather than fully frozen: associated linear and radial dimensions receive driving constraints and variables; profile edges use coincidence and horizontal/vertical constraints; each sketch has one fixed-point anchor. The base uses width, height, hole offsets and radius dimensions. The staircase uses three vertical and three horizontal driving dimensions. Trusted verification confirms both native sketches are fully defined and neither sketch is fully fixed.",
+    "Trusted verification confirms the saved artifact reopened and rebuilt, one solid body, two native sketches, two native extrusions, no feature errors, extents 60 × 28 × 75 mm, and volume 72593.2746051815 mm³, matching the stated rounded target of 72593 mm³. The artifact hash remained unchanged.",
+    "No dimension-perturbation test was performed. Derived spans and the staircase's fixed anchor are established numerically during construction rather than demonstrated as cross-feature associative dependencies; this does not demonstrate a defect in the requested nominal, editable, fully-defined model."
+  ],
+  "feedback": "The supplied evidence supports a correct native, editable solution. The visible stepped shape and hole agree with the drawing after accounting for the different viewing orientation, the dimensions and red-marked origin are consistent with the construction, and trusted native/sketch checks pass. For stronger future parametric validation, test dimension edits and explicitly link derived dimensions and inter-feature placement."
+}

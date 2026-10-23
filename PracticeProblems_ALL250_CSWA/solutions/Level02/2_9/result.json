@@ -1,0 +1,26 @@
+{
+  "task": "2.9",
+  "status": "partial",
+  "title": "SOLIDWORKS Practice Problem 2.9 — mounting plate",
+  "script": "solution.py",
+  "model": "attempt-o76y_hni/model.m3d",
+  "volume_mm3": 1272.4875799245697,
+  "reference_volume": 1273,
+  "reference_units": "mm3",
+  "volume_passed": false,
+  "checks": [
+    "Both native sketches fully defined (ksStateWellConstrained=1), using coincidences, horizontal/vertical alignment, equal radii and driving dimensions; only origin point/centre anchored.",
+    "Native feature tree rebuilt with no operation errors.",
+    "Exactly one solid body.",
+    "IMassInertiaParam.SetLengthUnits(ksLUnMM); GetLengthUnits=1 before and after Calculate.",
+    "Native volume 1272.487579924570 mm3; rounded-reference interval [1272.5,1273.5): False.",
+    "SaveAs succeeded into a new attempt directory; nonempty native .m3d exists.",
+    "Own document closed in finally; no foreign document was modified or closed."
+  ],
+  "limitations": [
+    "Drawing dimensions yield about 1272.48758 mm3, 0.01242 mm3 below the required lower rounding bound 1272.5; geometry was not adjusted to fit the reference.",
+    "Vertical centring of the Ø7 hole/relief and symmetric lower mounting row follow the drawing symmetry; no separate dimensions are provided for them.",
+    "Dimension-change tests and save/reopen were not performed, as requested. No preview, raster or export was generated."
+  ],
+  "tree": "Plate sketch → Boss 2 mm → Six-circle cut sketch → Through cut (five holes + R12 side relief)"
+}

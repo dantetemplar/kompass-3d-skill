@@ -1,0 +1,28 @@
+{
+  "task": "2.3",
+  "status": "partial",
+  "title": "Фланцевая втулка с двумя проушинами и облегчённым основанием",
+  "script": "solution.py",
+  "model": "attempt-__ef7xcl/model.m3d",
+  "volume_mm3": 325627.23424895486,
+  "reference_volume": 325633,
+  "reference_units": "mm3",
+  "volume_passed": false,
+  "checks": [
+    "ast.parse самостоятельного solution.py: passed до подключения к CAD.",
+    "Полное перестроение; рекурсивный GetObjectError: ошибок нет.",
+    "Конечный результат: одно твёрдое тело.",
+    "Эскиз «01 Касательное основание: Ø105; шаг 175; стенки 12»: GetConstraintsState=1; WellConstrained=1.",
+    "Эскиз «03 Втулка Ø105, стенка 12»: GetConstraintsState=1; WellConstrained=1.",
+    "Эскиз «05 Две проушины: 2 × Ø23.33, стенка 12»: GetConstraintsState=1; WellConstrained=1.",
+    "Эскиз «07 Карманы: стенки 3; 8 × R3»: GetConstraintsState=1; WellConstrained=1.",
+    "IMassInertiaParam.SetLengthUnits(ksLUnMM); GetLengthUnits=1 до/после Calculate; V=325627.234248955 мм³.",
+    "Эталонный интервал [325632.5,325633.5): False. Геометрия под объём не подгонялась.",
+    "SaveAs выполнен в отсутствующий attempt-*/model.m3d; непустой файл и GetFullPath подтверждены.",
+    "Собственный документ закрыт в finally; чужие документы не изменялись и не закрывались."
+  ],
+  "limitations": [
+    "Объём не попал в интервал округления эталона; размеры не подгонялись."
+  ],
+  "tree": "Касательное основание 12 → втулка 63 → проушины 25 → два кармана 3, 8 × R3"
+}

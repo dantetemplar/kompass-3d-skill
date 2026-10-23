@@ -1,0 +1,26 @@
+{
+  "task": "2.1",
+  "status": "passed",
+  "title": "SOLIDWORKS Practice Problem 2.1 — пластина с бортиком",
+  "script": "solution.py",
+  "model": "attempt-4gczam38/model.m3d",
+  "volume_mm3": 5262.829056895343,
+  "reference_volume": 5263,
+  "reference_units": "mm3",
+  "volume_passed": true,
+  "checks": [
+    "Самостоятельный solution.py с PEP723 проверен ast.parse до CAD-построения.",
+    "Эскиз «01 Основание 109×31, R9, R3.75»: GetConstraintsState=1; WellConstrained=1.",
+    "Эскиз «03 Карман, бортик шириной 1.5 мм»: GetConstraintsState=1; WellConstrained=1.",
+    "Эскиз «05 Две бобышки Ø8»: GetConstraintsState=1; WellConstrained=1.",
+    "Эскиз «07 Два сквозных отверстия Ø5»: GetConstraintsState=1; WellConstrained=1.",
+    "Эскиз «09 Нижние расточки Ø8»: GetConstraintsState=1; WellConstrained=1.",
+    "CompleteRebuildDocument/RebuildModel успешны; рекурсивный обход GetObjectError: ошибок операций нет.",
+    "Получено ровно одно твёрдое тело.",
+    "IMassInertiaParam.SetLengthUnits(ksLUnMM), GetLengthUnits=1 до/после Calculate; V=5262.829056895343 мм³; [5262.5,5263.5): True.",
+    "SaveAs успешен в новый отсутствовавший attempt-*/model.m3d; файл непустой, GetFullPath подтверждён.",
+    "Собственный документ закрыт в finally; чужие документы не изменялись и не закрывались."
+  ],
+  "limitations": [],
+  "tree": "Размерный контур 109×31 → заготовка 3 → карман 1.5 (бортик 1.5) → бобышки Ø8 до 3.75 → 2×Ø5 → нижние расточки Ø8×0.75"
+}

@@ -1,0 +1,23 @@
+{
+  "task": "1.14",
+  "status": "passed",
+  "title": "Practice Problem 1.14 — centered blade on mounting plate",
+  "script": "solution.py",
+  "model": "attempt-wky5nm_d/model.m3d",
+  "volume_mm3": 581662.0578055609,
+  "reference_volume": 581662,
+  "reference_units": "mm3",
+  "volume_passed": true,
+  "checks": [
+    "01 Plate 300×175; four Ø20: fully defined (GetConstraintsState=1); native coincidence, H/V and driving dimensions; only datum point anchored",
+    "04 Centered blade 120×65; Ø25: fully defined (GetConstraintsState=1); native coincidence, H/V and driving dimensions; only datum point anchored",
+    "Final native operation tree has no feature errors",
+    "Final part contains one solid body",
+    "IMassInertiaParam.SetLengthUnits(ksLUnMM); GetLengthUnits=1; actual volume=581662.057805561 mm3",
+    "Rounding interval [581661.5,581662.5): True",
+    "SaveAs succeeded to previously absent attempt-*/model.m3d; nonempty file exists",
+    "Own document closed in finally; no foreign document changed or closed"
+  ],
+  "limitations": [],
+  "tree": "Plate sketch (300×175, four Ø20) → extrusion 10 → four R20; blade sketch (120×65, Ø25 at Z55) → symmetric extrusion 10 → two upper R10"
+}

@@ -1,5 +1,20 @@
 {
+    "cursorpyright.analysis.stubPath": "skills/kompass-3d-skill/.cache/kompas-stubs",
+    "cursorpyright.analysis.extraPaths": [
+        "skills/kompass-3d-skill/.cache/kompas-stubs"
+    ],
     "python.analysis.stubPath": "skills/kompass-3d-skill/.cache/kompas-stubs",
+    "python.analysis.extraPaths": [
+        "skills/kompass-3d-skill/.cache/kompas-stubs"
+    ],
+    "ty.configurationFile": "${workspaceFolder}/ty.toml",
+    "ty.configuration": {
+        "environment": {
+            "extra-paths": [
+                "/home/dante/Projects/dantetemplar/kompass-3d-skill/skills/kompass-3d-skill/.cache/kompas-stubs"
+            ]
+        }
+    },
     "python-envs.pythonProjects": [
         {
             "path": ".",
