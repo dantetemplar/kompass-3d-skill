@@ -100,6 +100,109 @@ class SkillIntegrityTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
 
 
+class DocumentLifecycleTests(unittest.TestCase):
+    def test_owned_documents_close_in_reverse_order_once(self):
+        recipe = load_recipe("10_assembly")
+        order = []
+        first = Mock()
+        second = Mock()
+        first.Close.side_effect = lambda mode: order.append("first") or True
+        second.Close.side_effect = lambda mode: order.append("second") or True
+        owned = [first, second]
+        recipe.close_owned(owned)
+        recipe.close_owned(owned)
+        self.assertEqual(order, ["second", "first"])
+        self.assertEqual(owned, [])
+
+    def test_failed_close_consumes_handle_and_stops_cleanup(self):
+        recipe = load_recipe("10_assembly")
+        for outcome in (False, ConnectionError("lost Close response")):
+            with self.subTest(outcome=outcome):
+                first = Mock()
+                second = Mock()
+                if isinstance(outcome, Exception):
+                    second.Close.side_effect = outcome
+                else:
+                    second.Close.return_value = outcome
+                owned = [first, second]
+                with self.assertRaises((RuntimeError, ConnectionError)):
+                    recipe.close_owned(owned)
+                second.Close.assert_called_once()
+                first.Close.assert_not_called()
+                self.assertEqual(owned, [first])
+
+    def test_documented_close_helper_matches_executable_example(self):
+        recipe = load_recipe("10_assembly")
+        text = (SKILL_DIR / "SKILL.md").read_text()
+        snippet = next(code for code in re.findall(r"```python\n(.*?)\n```", text, re.DOTALL)
+                       if code.startswith("def close_owned("))
+        namespace = {"ksapi": SimpleNamespace(IKompasDocument=object),
+                     "c": recipe.c, "require": recipe.require}
+        exec(compile(snippet, "SKILL.md:close_owned", "exec"), namespace)
+        doc = Mock()
+        doc.Close.return_value = False
+        owned = [doc]
+        with self.assertRaises(RuntimeError):
+            namespace["close_owned"](owned)
+        namespace["close_owned"](owned)
+        doc.Close.assert_called_once()
+
+    def test_native_hole_reopen_failure_does_not_close_stale_handle(self):
+        for outcome in (False, ConnectionError("lost Close response"), "reopen failed"):
+            with self.subTest(outcome=outcome):
+                recipe = load_recipe("13_native_hole")
+                app = Mock()
+                documents = app.GetDocuments.return_value
+                doc = documents.AddWithDefaultSettings.return_value
+                doc.SaveAs.side_effect = lambda path: Path(path).write_bytes(b"saved fixture") > 0
+                if outcome == "reopen failed":
+                    documents.Open.side_effect = ValueError(outcome)
+                    expected = ValueError
+                elif isinstance(outcome, Exception):
+                    doc.Close.side_effect = outcome
+                    expected = ConnectionError
+                else:
+                    doc.Close.return_value = outcome
+                    expected = RuntimeError
+                with patch.object(recipe.ksapi, "GetKompas", return_value=app), \
+                        patch.object(recipe, "build"), patch.object(recipe, "validate"), \
+                        self.assertRaises(expected):
+                    recipe.main([])
+                doc.Close.assert_called_once()
+                app.GetActiveDocument.return_value.SetActive.assert_not_called()
+                if outcome != "reopen failed":
+                    documents.Open.assert_not_called()
+
+    def test_native_hole_final_close_failure_does_not_switch_documents(self):
+        recipe = load_recipe("13_native_hole")
+        app = Mock()
+        documents = app.GetDocuments.return_value
+        doc = documents.AddWithDefaultSettings.return_value
+        doc.SaveAs.side_effect = lambda path: Path(path).write_bytes(b"saved fixture") > 0
+        documents.Open.return_value.Close.side_effect = ConnectionError("final Close")
+        with patch.object(recipe.ksapi, "GetKompas", return_value=app), \
+                patch.object(recipe, "build"), patch.object(recipe, "validate"), \
+                self.assertRaisesRegex(ConnectionError, "final Close"):
+            recipe.main([])
+        doc.Close.assert_called_once()
+        documents.Open.return_value.Close.assert_called_once()
+        app.GetActiveDocument.return_value.SetActive.assert_not_called()
+
+    def test_native_hole_success_closes_old_and_new_handles_once(self):
+        recipe = load_recipe("13_native_hole")
+        app = Mock()
+        documents = app.GetDocuments.return_value
+        doc = documents.AddWithDefaultSettings.return_value
+        reopened = documents.Open.return_value
+        doc.SaveAs.side_effect = lambda path: Path(path).write_bytes(b"saved fixture") > 0
+        with patch.object(recipe.ksapi, "GetKompas", return_value=app), \
+                patch.object(recipe, "build"), patch.object(recipe, "validate"):
+            recipe.main([])
+        doc.Close.assert_called_once()
+        reopened.Close.assert_called_once()
+        app.GetActiveDocument.return_value.SetActive.assert_called_once()
+
+
 class IncrementalTests(unittest.TestCase):
     def setUp(self):
         self.recipe = load_recipe("incremental_edit")

@@ -39,10 +39,10 @@ def require(value: T | None, message: str) -> T:
 
 
 def close_owned(owned: list[ksapi.IKompasDocument]) -> None:
+    """Healthy session only; consume ownership before Close, never retry it."""
     while owned:
-        doc = owned[-1]
-        require(doc.Close(c.kdDoNotSaveChanges), "Close owned document")
-        owned.pop()
+        doc = owned.pop()
+        require(doc.Close(c.kdDoNotSaveChanges), "Close owned document; do not retry")
 
 
 def save_new(doc: ksapi.IKompasDocument, path: Path) -> None:

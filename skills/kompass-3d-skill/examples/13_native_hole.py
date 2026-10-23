@@ -279,6 +279,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     app = require(ksapi.GetKompas(), "Нет запущенной API-сессии КОМПАС")
     previous = app.GetActiveDocument()
     doc = None
+    lifecycle_pending = False
     with TemporaryDirectory(prefix="kompas-native-hole-") as directory:
         target = output if output is not None else Path(directory) / "native-hole.m3d"
         try:
@@ -294,20 +295,25 @@ def main(argv: Sequence[str] | None = None) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             require(doc.SaveAs(str(target)), "Сохранение")
             require(target.is_file() and target.stat().st_size > 0, "Файл результата отсутствует")
-            require(doc.Close(c.kdDoNotSaveChanges), "Закрытие перед reopen")
-            doc = None
+            # Consume ownership BEFORE Close: an unknown outcome must not cause
+            # finally to close the same native handle a second time.
+            closing, doc = doc, None
+            lifecycle_pending = True
+            require(closing.Close(c.kdDoNotSaveChanges), "Закрытие перед reopen; не повторять")
+            lifecycle_pending = False
             # Только собственный новый файл; пользовательские документы не переоткрываются.
+            lifecycle_pending = True
             doc = require(documents.Open(str(target), True, False), "Reopen собственной детали")
+            lifecycle_pending = False
             part = require(ksapi.IKompasDocument3D(doc).GetTopPart(), "Верхний компонент после reopen")
             bounds = validate(part)
             print(f"Проверено после reopen: {bounds}; файл: {output or 'временная деталь'}")
         finally:
-            try:
-                if doc is not None:
-                    require(doc.Close(c.kdDoNotSaveChanges), "Закрытие собственной детали")
-            finally:
-                if previous:
-                    previous.SetActive()
+            if doc is not None:
+                closing, doc = doc, None
+                require(closing.Close(c.kdDoNotSaveChanges), "Закрытие собственной детали; не повторять")
+            if previous and not lifecycle_pending:
+                previous.SetActive()
 
 
 if __name__ == "__main__":
