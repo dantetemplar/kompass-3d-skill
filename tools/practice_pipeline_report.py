@@ -57,25 +57,41 @@ def _timing(attempt: dict[str, Any], expected_minutes: float | None = None) -> s
     return f"**{duration}** ({seconds:.3f}с){warning}"
 
 
-def _tokens(trace: Path) -> str:
-    """Count final assistant usage once per request, not streaming updates or agent_end copies."""
-    total = 0
+def worker_usage(trace: Path) -> dict[str, Any] | None:
+    """Sum worker request usage once; streamed deltas and agent_end copies are not requests."""
+    if not trace.is_file():
+        return None
     requests = 0
-    if trace.is_file():
-        with trace.open(encoding="utf-8") as stream:
-            for line in stream:
-                if not line.strip():
-                    continue
-                event = json.loads(line)
-                message = event.get("message", {})
-                if event.get("type") != "message_end" or message.get("role") != "assistant":
-                    continue
-                count = message.get("usage", {}).get("totalTokens")
-                if type(count) is not int or count < 0:
-                    return "Токены: нет данных"
-                total += count
-                requests += 1
-    return f"{total / 1_000_000:.3f} млн. токенов" if requests else "Токены: нет данных"
+    totals = dict.fromkeys(("input", "output", "cacheRead", "cacheWrite", "totalTokens"), 0)
+    tools: dict[str, int] = {}
+    with trace.open(encoding="utf-8") as stream:
+        for line in stream:
+            if not line.strip():
+                continue
+            event = json.loads(line)
+            if event.get("type") == "tool_execution_start":
+                name = event["toolName"]
+                tools[name] = tools.get(name, 0) + 1
+            message = event.get("message", {})
+            if event.get("type") != "message_end" or message.get("role") != "assistant":
+                continue
+            usage = message.get("usage", {})
+            count = usage.get("totalTokens")
+            if type(count) is not int or count < 0:
+                return None
+            for key in totals:
+                value = usage.get(key)
+                if type(value) is int and value >= 0 and totals[key] is not None:
+                    totals[key] += value
+                else:
+                    totals[key] = None
+            requests += 1
+    return dict(totals, requests=requests, tools=tools) if requests else None
+
+
+def _tokens(trace: Path) -> str:
+    usage = worker_usage(trace)
+    return f"{usage['totalTokens'] / 1_000_000:.3f} млн. токенов" if usage else "Токены: нет данных"
 
 
 def _result(root: Path, workspace: Path, attempt: dict[str, Any], run_error: str | None = None) -> str:

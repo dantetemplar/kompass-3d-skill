@@ -2,16 +2,53 @@
 import importlib.util
 from pathlib import Path
 import tempfile
+import sys
 import unittest
 from unittest.mock import patch
 
 PATH = Path(__file__).resolve().parents[1] / "tools/practice_pipeline.py"
+sys.path.insert(0, str(PATH.parent))
 spec = importlib.util.spec_from_file_location("practice_pipeline", PATH)
 pipeline = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pipeline)
 
 
 class PipelineTests(unittest.TestCase):
+    def test_worker_gets_exact_learned_guidance_even_if_file_tail_truncated(self):
+        from skillopt_sleep.memory import set_learned
+        text = set_learned("# skill\n" + "long reference\n" * 5000, ["Reusable signed coordinate guidance"])
+        prompt = pipeline.worker_prompt(text)
+        self.assertIn("- Reusable signed coordinate guidance", prompt)
+        self.assertNotIn("long reference", prompt)
+        self.assertNotIn("Managed guidance", pipeline.worker_prompt("# no managed block"))
+
+    def test_prepared_candidate_resumes_without_reflection(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pipeline.write_json(root / "run.json", {"state": "candidate_prepared"})
+            (root / "candidate-skill.md").write_text("prepared skill")
+            with patch.object(pipeline, "execute_attempt") as execute, patch.object(pipeline, "reflect") as reflect:
+                pipeline.advance(root)
+            reflect.assert_not_called()
+            self.assertEqual(execute.call_args.args[2:], ("candidate", "prepared skill"))
+
+    def test_correctness_first_efficiency_gate(self):
+        def attempt(passed, seconds=100, tokens=1000):
+            return {"hard": int(passed), "worker_seconds": seconds, "worker_usage": {"totalTokens": tokens}}
+        cases = [(attempt(False), attempt(False, 1, 1), False, "candidate_incorrect"),
+                 (attempt(False), attempt(True, 1000, 10000), True, "correctness_fixed"),
+                 (attempt(True), attempt(False, 1, 1), False, "candidate_incorrect"),
+                 (attempt(True), attempt(True, 90, 1000), True, "pareto_improvement"),
+                 (attempt(True), attempt(True, 100, 900), True, "pareto_improvement"),
+                 (attempt(True), attempt(True, 90, 1100), False, "no_pareto_improvement"),
+                 (attempt(True), attempt(True), False, "no_pareto_improvement"),
+                 (attempt(True), attempt(True, 90, None), False, "missing_efficiency_measurements")]
+        for baseline, candidate, improved, reason in cases:
+            with self.subTest(reason=reason, candidate=candidate):
+                gate = pipeline.efficiency_gate(baseline, candidate)
+                self.assertEqual(gate["improved"], improved)
+                self.assertEqual(gate["reason"], reason)
+
     def test_redaction(self):
         key = "sk-abcdefghijklmnopqrstuvwxyz123456"
         self.assertNotIn(key, pipeline.redact(f"message {key}"))

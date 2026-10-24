@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from urllib.parse import unquote
 
-from tools.practice_pipeline_report import _timing, _tokens, render_report
+from tools.practice_pipeline_report import _timing, _tokens, render_report, worker_usage
 
 
 class PracticePipelineReportTests(unittest.TestCase):
@@ -105,6 +105,23 @@ class PracticePipelineReportTests(unittest.TestCase):
                    json.dumps({"type": "message_end", "message": message}))
         row = next(line for line in self.render().splitlines() if line.startswith("| **"))
         self.assertIn("**13 с** (12.500с)<br>0.012 млн. токенов<br>[run.json]", row)
+
+    def test_worker_usage_breakdown_and_tool_counts(self) -> None:
+        trace = self.run / "baseline/trace.jsonl"
+        usage = {"input": 10, "output": 20, "cacheRead": 30, "cacheWrite": 0, "totalTokens": 60}
+        events = [{"type": "message_end", "message": {"role": "assistant", "usage": usage}},
+                  {"type": "tool_execution_start", "toolName": "read"},
+                  {"type": "tool_execution_start", "toolName": "read"},
+                  {"type": "tool_execution_end", "toolName": "read"},
+                  {"type": "tool_execution_start", "toolName": "bash"}]
+        self.write(trace, "\n".join(json.dumps(event) for event in events))
+        self.assertEqual(worker_usage(trace), dict(usage, requests=1, tools={"read": 2, "bash": 1}))
+        events.append({"type": "message_end", "message": {"role": "assistant", "usage": {"totalTokens": 5}}})
+        self.write(trace, "\n".join(json.dumps(event) for event in events))
+        measured = worker_usage(trace)
+        self.assertEqual(measured["totalTokens"], 65)
+        self.assertIsNone(measured["cacheRead"])
+        self.assertEqual(measured["requests"], 2)
 
     def test_missing_token_usage_is_not_reported_as_zero_or_partial(self) -> None:
         trace = self.run / "baseline/trace.jsonl"

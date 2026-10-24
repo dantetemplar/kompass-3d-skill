@@ -134,6 +134,9 @@ for (const [toolName, input, blocked] of cases) {
         with TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "baseline-skill.md").write_text("skill")
+            (root / "optimization-objective.json").write_text('{"priority": ["correctness"]}')
+            (root / "baseline").mkdir()
+            (root / "baseline/trace.jsonl").write_text("")
             for name in ("teacher-review.json", "verification/verification.json", "workspace/solution.py"):
                 path = root / "baseline" / name
                 path.parent.mkdir(parents=True, exist_ok=True)

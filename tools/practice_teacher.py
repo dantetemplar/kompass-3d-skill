@@ -135,12 +135,14 @@ class PiTeacherBackend(CliBackend):
 
     name = "pi-teacher"
 
-    def __init__(self, run: Path, config: Path, runner: Any):
+    def __init__(self, run: Path, config: Path, runner: Any, *, evidence_attempt: str = "baseline"):
         super().__init__(model=MODEL, timeout=600)
         self.run = run
         self.config = config
         self.runner = runner
-        self.calls = 0
+        self.calls = max((int(path.name.removeprefix("pi-call-"))
+                          for path in (run / "reflection").glob("pi-call-*") if path.is_dir()), default=0)
+        self.evidence_attempt = evidence_attempt
 
     def _call(self, prompt: str, *, max_tokens: int = 1024) -> str:
         self.calls += 1
@@ -150,11 +152,16 @@ class PiTeacherBackend(CliBackend):
         snapshot.mkdir()
         (snapshot / "optimizer-prompt.txt").write_text(prompt)
         shutil.copy2(self.run / "baseline-skill.md", snapshot / "skill.md")
+        shutil.copy2(self.run / "optimization-objective.json", snapshot / "optimization-objective.json")
+        from practice_pipeline_report import worker_usage
+        summary = worker_usage(self.run / self.evidence_attempt / "trace.jsonl")
+        (snapshot / "worker-summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
         for name in ("teacher-review.json", "verification/verification.json", "workspace/solution.py"):
-            shutil.copy2(self.run / "baseline" / name, snapshot / Path(name).name)
+            shutil.copy2(self.run / self.evidence_attempt / name, snapshot / Path(name).name)
         result, _ = run_agent(snapshot, output, "Read optimizer-prompt.txt and fulfill the SkillOpt "
-                              "reflection request. You may inspect skill.md, teacher-review.json, "
-                              "verification.json and solution.py. Return only the JSON edits array. "
+                              "reflection request. Read optimization-objective.json and worker-summary.json. "
+                              "You may inspect skill.md, teacher-review.json, verification.json and solution.py. "
+                              "Return only the JSON edits array. "
                               "A single successful task or transport failure does not justify new rules; "
                               "empty [] is valid.", self.config, self.runner)
         if not isinstance(result, list):

@@ -30,9 +30,10 @@ import time
 from typing import Any
 
 from skillopt.evaluation.gate import evaluate_gate
+from practice_pipeline_report import worker_usage
 from skillopt_sleep.backend import CursorCliBackend
 from skillopt_sleep.handoff_backend import HandoffBackend, PendingCalls
-from skillopt_sleep.memory import apply_edits_detailed
+from skillopt_sleep.memory import apply_edits_detailed, current_learned_lines
 from skillopt_sleep.types import ReplayResult, TaskRecord
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -133,8 +134,8 @@ def preflight(teacher: str) -> None:
                    env=env, check=True, timeout=60)
 
 
-def worker_prompt() -> str:
-    return """Solve ONLY Practice Problem 1.1 in the existing Kompas-3D API session.
+def worker_prompt(skill_text: str = "") -> str:
+    prompt = """Solve ONLY Practice Problem 1.1 in the existing Kompas-3D API session.
 Read skill/SKILL.md fully, input/task.md and input/drawing.jpg. Use the supplied
 skill examples and SDK lookup as needed, but no previous solution to this task.
 Build a native editable part matching ALL dimensions and the indicated origin;
@@ -150,11 +151,20 @@ auth files or credentials. Never start, kill or restart Kompas. One CAD writer.
 If the session disconnects or a CAD call hangs, stop; no API cleanup after loss.
 You have 15 minutes. Explain any missing/unchecked requirements honestly.
 """
+    learned = current_learned_lines(skill_text)
+    if learned:
+        prompt += ("\nManaged guidance from this exact skill snapshot (included verbatim because file reads "
+                   "may truncate its tail):\n" + "\n".join("- " + line for line in learned) + "\n")
+    return prompt
 
 
 def execute_attempt(run: Path, data: dict[str, Any], attempt_id: str, skill_text: str) -> None:
     directory = run / attempt_id
     directory.mkdir()
+    if attempt_id != "baseline":
+        for name in ("proposal.json", "patch-result.json", "optimization-objective.json"):
+            shutil.copy2(run / name, directory / name)
+    data.pop("gate", None)
     workspace = directory / "workspace"
     workspace.mkdir()
     shutil.copytree(SKILL, workspace / "skill", ignore=shutil.ignore_patterns(
@@ -165,7 +175,7 @@ def execute_attempt(run: Path, data: dict[str, Any], attempt_id: str, skill_text
     inputs.mkdir()
     shutil.copy2(SOURCE, inputs / "task.md")
     shutil.copy2(SOURCE.with_suffix(".jpg"), inputs / "drawing.jpg")
-    prompt = worker_prompt()
+    prompt = worker_prompt(skill_text)
     (directory / "worker-prompt.txt").write_text(prompt)
     attempt = {"id": attempt_id, "directory": attempt_id, "status": "running",
                "skill_sha256": hashlib.sha256(skill_text.encode()).hexdigest()}
@@ -179,7 +189,8 @@ def execute_attempt(run: Path, data: dict[str, Any], attempt_id: str, skill_text
                "read,bash,edit,write,grep,find,ls", "--session-dir", str(directory / "sessions"),
                "--mode", "json", "--print", prompt]
     code, seconds = run_process(command, workspace, directory / "trace.jsonl", env, 900, [key])
-    attempt.update(worker_exit_code=code, worker_seconds=seconds)
+    attempt.update(worker_exit_code=code, worker_seconds=seconds,
+                   worker_usage=worker_usage(directory / "trace.jsonl"))
     # Raw Pi sessions can contain tool content; scrub secrets before publishing.
     for session in (directory / "sessions").glob("*.jsonl"):
         session.write_text(redact(session.read_text(), [key]))
@@ -260,7 +271,7 @@ def request_teacher(run: Path, data: dict[str, Any], attempt: dict[str, Any]) ->
     directory = run / attempt["directory"]
     write_json(directory / "teacher-request.json", review_request(run, data, attempt))
     attempt["status"] = "awaiting_teacher"
-    data["state"] = f"{attempt['id']}_review"
+    data["state"] = "baseline_review" if attempt["id"] == "baseline" else "candidate_review"
     persist(run, data)
     if data["teacher_transport"] == "pi":
         from practice_teacher import review as pi_review
@@ -346,17 +357,49 @@ def validated_review(run: Path, attempt: dict[str, Any]) -> dict[str, Any]:
     return review
 
 
-def reflect(run: Path, data: dict[str, Any], review: dict[str, Any]) -> str | None:
+def efficiency_gate(baseline: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
+    """Correctness is mandatory; among passing runs require a measured Pareto gain."""
+    measurements = {}
+    for name, attempt in (("baseline", baseline), ("candidate", candidate)):
+        usage = attempt.get("worker_usage") or {}
+        measurements[name] = {"passed": attempt.get("hard") == 1,
+                              "seconds": attempt.get("worker_seconds"),
+                              "tokens": usage.get("totalTokens")}
+    old, new = measurements["baseline"], measurements["candidate"]
+    if not new["passed"]:
+        improved, reason = False, "candidate_incorrect"
+    elif not old["passed"]:
+        improved, reason = True, "correctness_fixed"
+    elif any(item[key] is None for item in (old, new) for key in ("seconds", "tokens")):
+        improved, reason = False, "missing_efficiency_measurements"
+    else:
+        improved = (new["seconds"] <= old["seconds"] and new["tokens"] <= old["tokens"]
+                    and (new["seconds"] < old["seconds"] or new["tokens"] < old["tokens"]))
+        reason = "pareto_improvement" if improved else "no_pareto_improvement"
+    return {"improved": improved, "reason": reason, **measurements}
+
+
+def reflect(run: Path, data: dict[str, Any], review: dict[str, Any], *,
+            evidence_attempt: str = "baseline") -> str | None:
     skill = (run / "baseline-skill.md").read_text()
     task = TaskRecord(id="practice-1.1", project=str(ROOT), intent=SOURCE.read_text(),
                       system="Build actual native CAD artifact; do not answer with prose only.")
     baseline = data["attempts"][0]
-    result = ReplayResult(id=task.id, hard=baseline["hard"], soft=baseline["score"],
+    baseline["worker_usage"] = worker_usage(run / baseline["directory"] / "trace.jsonl")
+    write_json(run / "optimization-objective.json", {
+        "priority": ["correct native geometry and drawing intent", "worker elapsed seconds", "worker total tokens"],
+        "selection": "Incorrect candidates rejected; correctness fixes first; passing candidates must improve "
+                     "time or tokens without worsening the other. Token usage includes cache; teacher excluded.",
+        "condition_validity": "Conflicting or missing requirements must be reported as a blocker, not guessed.",
+        "baseline_seconds": baseline.get("worker_seconds"), "baseline_usage": baseline["worker_usage"],
+        "scope": "single-task training replay, not held-out generalization"})
+    observed = next(item for item in data["attempts"] if item["directory"] == evidence_attempt)
+    result = ReplayResult(id=task.id, hard=observed["hard"], soft=observed["score"],
                           response=review.get("feedback", ""),
                           optimizer_feedback=review.get("feedback", ""))
     if data["teacher_transport"] == "pi":
         from practice_teacher import PiTeacherBackend
-        backend = PiTeacherBackend(run, CONFIG, run_process)
+        backend = PiTeacherBackend(run, CONFIG, run_process, evidence_attempt=evidence_attempt)
     elif data["teacher_transport"] == "handoff":
         backend = HandoffBackend(model=TEACHER, handoff_dir=str(run / "reflection"))
     else:
@@ -366,7 +409,13 @@ def reflect(run: Path, data: dict[str, Any], review: dict[str, Any]) -> str | No
                            "Use add only; change only the managed learned block. No edits if the skill already "
                            "covers the issue. Optional future validation suggestions on successful work are not "
                            "task failures and must not become mandatory rules. Only task 1.1 observed; "
-                           "do not claim recurring cross-task evidence.\n"
+                           "do not claim recurring cross-task evidence. Correctness is a hard prerequisite; "
+                           "then minimize worker elapsed time and total tokens, including cached input. "
+                           "Propose at most two short additions, at most 1800 added characters total. "
+                           "Use measured worker tool/usage evidence in optimization-objective.json and "
+                           "worker-summary.json to avoid redundant broad reads and repeated API probes; "
+                           "do not optimize by skipping required dimensions or native constraints. "
+                           "Condition ambiguities must be reported, not invented.\n"
                            "Full training feedback (public CAD behavior, not grader implementation):\n"
                            + review.get("feedback", "")[:6000] + "\n"
                            + "\n".join(review.get("notes", []))[:4000])
@@ -380,7 +429,8 @@ def reflect(run: Path, data: dict[str, Any], review: dict[str, Any]) -> str | No
         persist(run, data)
         return None
     write_json(run / "proposal.json", [asdict(edit) for edit in edits])
-    if len(edits) > 2 or any(edit.target != "skill" or edit.op != "add" for edit in edits):
+    if (len(edits) > 2 or sum(len(edit.content) for edit in edits) > 1800
+            or any(edit.target != "skill" or edit.op != "add" for edit in edits)):
         raise ValueError("Proposal violates bounded skill-only add contract")
     candidate, applied, unmatched = apply_edits_detailed(skill, edits) if edits else (skill, [], [])
     write_json(run / "patch-result.json", {"applied": [asdict(e) for e in applied],
@@ -391,6 +441,8 @@ def reflect(run: Path, data: dict[str, Any], review: dict[str, Any]) -> str | No
         persist(run, data)
         return None
     (run / "candidate-skill.md").write_text(candidate)
+    data["state"] = "candidate_prepared"
+    persist(run, data)
     return candidate
 
 
@@ -432,14 +484,17 @@ def stop_for_blocked_review(run: Path, data: dict[str, Any], review: dict[str, A
 
 def advance(run: Path) -> None:
     data = read_json(run / "run.json")
-    if data["state"] == "awaiting_reflection":
+    if data["state"] == "candidate_prepared":
+        execute_attempt(run, data, "candidate", (run / "candidate-skill.md").read_text())
+    elif data["state"] == "awaiting_reflection":
         review = validated_review(run, data["attempts"][0])
         if stop_for_blocked_review(run, data, review):
             return
         candidate = reflect(run, data, review)
         if candidate:
             execute_attempt(run, data, "candidate", candidate)
-    elif data["state"] in {"baseline_review", "candidate_review", "review_blocked"}:
+    elif (data["state"] in {"baseline_review", "candidate_review", "review_blocked"}
+          or re.fullmatch(r"candidate-\d+_review", data["state"])):
         attempt = data["attempts"][-1]
         review = validated_review(run, attempt)
         if stop_for_blocked_review(run, data, review):
@@ -452,12 +507,16 @@ def advance(run: Path) -> None:
             baseline = data["attempts"][0]
             original = (run / "baseline-skill.md").read_text()
             candidate = (run / "candidate-skill.md").read_text()
-            gate = evaluate_gate(candidate, attempt["hard"], original, baseline["score"],
-                                 original, baseline["score"], 0, 1,
-                                 cand_soft=attempt["score"], metric="soft")
+            for item in (baseline, attempt):
+                item["worker_usage"] = worker_usage(run / item["directory"] / "trace.jsonl")
+            comparison = efficiency_gate(baseline, attempt)
+            gate = evaluate_gate(candidate, float(comparison["improved"]), original, 0.,
+                                 original, 0., 0, 1, metric="hard")
             write_json(run / "skillopt-gate.json", asdict(gate))
+            write_json(run / "efficiency-comparison.json", comparison)
             data.update(state="complete", gate={"action": gate.action,
-                        "accepted": False, "pilot_improved": attempt["score"] > baseline["score"],
+                        "accepted": False, "pilot_improved": comparison["improved"],
+                        "comparison": comparison,
                         "baseline": baseline["score"], "candidate": attempt["score"],
                         "scope": "same task used for learning and replay; no held-out adoption"})
             persist(run, data)
