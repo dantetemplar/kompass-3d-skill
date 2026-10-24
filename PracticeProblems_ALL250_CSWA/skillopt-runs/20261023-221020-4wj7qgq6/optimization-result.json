@@ -1,0 +1,19 @@
+{
+  "scope": "Single training task 1.1, no held-out evidence, no live skill adoption",
+  "baseline": {"passed": false, "worker_seconds": 546.509, "worker_tokens": 4418104},
+  "replays": [
+    {"id": "candidate", "passed": false, "worker_seconds": 489.411, "worker_tokens": 4481194, "guidance_delivery": "learned tail absent from direct SKILL.md reads"},
+    {"id": "candidate-2", "passed": false, "worker_seconds": 469.935, "worker_tokens": 2413974, "guidance_delivery": "learned tail absent from direct SKILL.md reads"},
+    {"id": "candidate-3", "passed": false, "worker_seconds": 541.432, "worker_tokens": 3886011, "guidance_delivery": "exact learned block explicitly supplied in worker prompt", "failure": "Depth reflection remains in saved model; code and artifact intent disagree"}
+  ],
+  "adopted": false,
+  "gate": "reject: correctness required regardless of speed/token gains",
+  "findings": [
+    "Pi read limits truncate the skill before the managed learned block; worker prompt now includes this block verbatim for both baseline and candidate snapshots",
+    "Candidate-3 explicitly planned negative Y but saved an artifact with positive Y after failed direction experiments",
+    "Worker tool outputs report bounds Y=0..28 at successful save; final source instead contains EXPECTED_BOUNDS Y=-28..0 and corresponding assertions",
+    "All candidate teacher image hashes are identical, and all saved artifacts remain on the wrong side by independent B-rep inspection",
+    "Fewer worker tokens alone do not establish valid skill improvement or monetary savings"
+  ],
+  "next_experiment": "Reflect on actual operation-direction failures and source/artifact inconsistency, not more generic coordinate reminders; require successful run of final source and independent signed geometry verification. Keep existing safety boundaries."
+}

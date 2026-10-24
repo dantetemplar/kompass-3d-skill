@@ -1,0 +1,25 @@
+{
+  "priority": [
+    "correct native geometry and drawing intent",
+    "worker elapsed seconds",
+    "worker total tokens"
+  ],
+  "selection": "Incorrect candidates rejected; correctness fixes first; passing candidates must improve time or tokens without worsening the other. Token usage includes cache; teacher excluded.",
+  "condition_validity": "Conflicting or missing requirements must be reported as a blocker, not guessed.",
+  "baseline_seconds": 546.509,
+  "baseline_usage": {
+    "input": 71837,
+    "output": 71835,
+    "cacheRead": 4274432,
+    "cacheWrite": 0,
+    "totalTokens": 4418104,
+    "requests": 54,
+    "tools": {
+      "read": 17,
+      "bash": 35,
+      "write": 1,
+      "edit": 2
+    }
+  },
+  "scope": "single-task training replay, not held-out generalization"
+}

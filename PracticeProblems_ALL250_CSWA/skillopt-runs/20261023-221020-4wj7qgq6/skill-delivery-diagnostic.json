@@ -1,0 +1,15 @@
+{
+  "issue": "Pi read truncates SKILL.md before the managed learned block at its tail",
+  "affected_attempts": ["candidate", "candidate-2"],
+  "observations": {
+    "candidate": "Initial read returned lines 1-323 of 1455; no further direct SKILL.md read",
+    "candidate-2": "Direct reads returned lines 1-323 and 324-683 of 1455; neither includes learned guidance",
+    "learned_block_start_line": 1449,
+    "read_limit": "50 KB"
+  },
+  "interpretation": "Both saved artifacts fail correctness, but these attempts do not establish that the candidate instructions are ineffective because their direct skill reads did not deliver those instructions",
+  "correction": "worker_prompt includes current_learned_lines from the exact skill snapshot verbatim, with no teacher feedback or task-specific solution",
+  "replay": "candidate-3",
+  "candidate_skill_sha256": "0fbb4fe3b509ad3d7bffd570019352db8106b16fe29778c5fd1f3d722a90d1aa",
+  "generalization": "Task 1.1 is training/replay only, not a held-out validation set"
+}

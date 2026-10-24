@@ -7,7 +7,7 @@
   "teacher_transport": "pi",
   "skill_sha256": "7d9e68abf7b1a050275eac39fb95f8d8cb50779a5546ff820098fd453ee5067b",
   "started_at": "2026-10-23T22:10:20.142895+00:00",
-  "state": "baseline_review",
+  "state": "complete",
   "attempts": [
     {
       "id": "baseline",
@@ -23,6 +23,99 @@
       },
       "teacher_seconds": 81.521,
       "score": 0.75,
+      "hard": 0.0,
+      "worker_usage": {
+        "input": 71837,
+        "output": 71835,
+        "cacheRead": 4274432,
+        "cacheWrite": 0,
+        "totalTokens": 4418104,
+        "requests": 54,
+        "tools": {
+          "read": 17,
+          "bash": 35,
+          "write": 1,
+          "edit": 2
+        }
+      }
+    },
+    {
+      "id": "candidate",
+      "directory": "candidate",
+      "status": "failed",
+      "skill_sha256": "0d01fcec563e7c45bf084147f28b6d99a37400c40acb9dd06cc7435f81a55635",
+      "worker_exit_code": 0,
+      "worker_seconds": 489.411,
+      "worker_usage": {
+        "input": 57368,
+        "output": 61970,
+        "cacheRead": 4361856,
+        "cacheWrite": 0,
+        "totalTokens": 4481194,
+        "requests": 67,
+        "tools": {
+          "read": 15,
+          "bash": 59,
+          "write": 1,
+          "edit": 1
+        }
+      },
+      "model_sha256": "7db6a7d2df89e691495b7eda768d79e614f6c8497d8ece0c7dad4b0fd626651f",
+      "verification_seconds": 9.313,
+      "teacher_seconds": 119.283,
+      "score": 0.7,
+      "hard": 0.0
+    },
+    {
+      "id": "candidate-2",
+      "directory": "candidate-2",
+      "status": "failed",
+      "skill_sha256": "0fbb4fe3b509ad3d7bffd570019352db8106b16fe29778c5fd1f3d722a90d1aa",
+      "worker_exit_code": 0,
+      "worker_seconds": 469.935,
+      "worker_usage": {
+        "input": 42609,
+        "output": 70693,
+        "cacheRead": 2300672,
+        "cacheWrite": 0,
+        "totalTokens": 2413974,
+        "requests": 40,
+        "tools": {
+          "read": 14,
+          "bash": 28,
+          "write": 1
+        }
+      },
+      "model_sha256": "7bc61226072dab443b5dfa1752e4d3249a7a474eb5318287211d8ead802faa48",
+      "verification_seconds": 8.748,
+      "teacher_seconds": 114.888,
+      "score": 0.75,
+      "hard": 0.0
+    },
+    {
+      "id": "candidate-3",
+      "directory": "candidate-3",
+      "status": "failed",
+      "skill_sha256": "0fbb4fe3b509ad3d7bffd570019352db8106b16fe29778c5fd1f3d722a90d1aa",
+      "worker_exit_code": 0,
+      "worker_seconds": 541.432,
+      "worker_usage": {
+        "input": 57974,
+        "output": 67909,
+        "cacheRead": 3760128,
+        "cacheWrite": 0,
+        "totalTokens": 3886011,
+        "requests": 55,
+        "tools": {
+          "read": 9,
+          "bash": 48,
+          "write": 1
+        }
+      },
+      "model_sha256": "8a113608172920eeaa11152818dc9465d4117a25f8cb6c71e575b68267ccb84d",
+      "verification_seconds": 11.224,
+      "teacher_seconds": 95.191,
+      "score": 0.8,
       "hard": 0.0
     }
   ],
@@ -32,5 +125,27 @@
     "review-history/20261023-224801-323424",
     "review-history/20261023-231530-394208"
   ],
-  "teacher_thinking": "high"
+  "teacher_thinking": "high",
+  "gate": {
+    "action": "reject",
+    "accepted": false,
+    "pilot_improved": false,
+    "comparison": {
+      "improved": false,
+      "reason": "candidate_incorrect",
+      "baseline": {
+        "passed": false,
+        "seconds": 546.509,
+        "tokens": 4418104
+      },
+      "candidate": {
+        "passed": false,
+        "seconds": 541.432,
+        "tokens": 3886011
+      }
+    },
+    "baseline": 0.75,
+    "candidate": 0.8,
+    "scope": "same task used for learning and replay; no held-out adoption"
+  }
 }

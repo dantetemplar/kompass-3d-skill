@@ -1,0 +1,18 @@
+Solve ONLY Practice Problem 1.1 in the existing Kompas-3D API session.
+Read skill/SKILL.md fully, input/task.md and input/drawing.jpg. Use the supplied
+skill examples and SDK lookup as needed, but no previous solution to this task.
+Build a native editable part matching ALL dimensions and the indicated origin;
+sketches must be dimension-driven and fully defined, not fully fixed geometry.
+Create a standalone typed solution.py here and actually run it via
+bash skill/scripts/run.sh /absolute/path/to/solution.py .
+Save your completed part exactly as model.m3d here. Close ONLY your own document
+after saving; the teacher independently opens the saved file. Do not create the
+teacher's verification, screenshot, review or success report. Do not read old
+solutions, sibling attempts, teacher feedback or verifier source. Never modify
+the source repository or skill; write ONLY in this workspace. Do not read env,
+auth files or credentials. Never start, kill or restart Kompas. One CAD writer.
+If the session disconnects or a CAD call hangs, stop; no API cleanup after loss.
+You have 15 minutes. Explain any missing/unchecked requirements honestly.
+
+Managed guidance from this exact skill snapshot (included verbatim because file reads may truncate its tail):
+- По чертежу с отмеченным началом координат согласовать его положение на ортогональных видах; выбрать два направления осей, третье вывести из правой системы и записать знаковые диапазоны основных объёмов. Не помещать весь материал в положительные координаты автоматически. Для асимметричной детали сверить один различающий стороны признак относительно начала и соседней грани: полку, уступ или смещённое отверстие. Объём и габаритные размеры не отличают зеркальную форму от требуемой.

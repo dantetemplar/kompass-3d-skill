@@ -1,0 +1,14 @@
+{
+  "improved": false,
+  "reason": "candidate_incorrect",
+  "baseline": {
+    "passed": false,
+    "seconds": 546.509,
+    "tokens": 4418104
+  },
+  "candidate": {
+    "passed": false,
+    "seconds": 541.432,
+    "tokens": 3886011
+  }
+}
