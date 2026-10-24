@@ -15,5 +15,35 @@
     "All candidate teacher image hashes are identical, and all saved artifacts remain on the wrong side by independent B-rep inspection",
     "Fewer worker tokens alone do not establish valid skill improvement or monetary savings"
   ],
-  "next_experiment": "Reflect on actual operation-direction failures and source/artifact inconsistency, not more generic coordinate reminders; require successful run of final source and independent signed geometry verification. Keep existing safety boundaries."
+  "baseline_trace_analysis": {
+    "source": "Read-only trace analysis returned by task 283d3fbb-9b3d-465d-b2f7-8855931a4a79",
+    "macro_launches": 8,
+    "failed_macro_launches": 7,
+    "failure_status_issue": "Macro invocations piped through tail without pipefail masked upstream failures; tool isError=false did not establish successful execution",
+    "drawing_interpretation": {
+      "tool_calls": 27,
+      "image_reads": 12,
+      "model_seconds": 203.6,
+      "output_tokens": 34250,
+      "reasoning_tokens_included_in_output": 30525
+    },
+    "cache_read_share_percent": 96.7,
+    "cache_interpretation": "Aggregate token count mainly represents repeated cached context, not unique tokens or a direct monetary cost",
+    "skill_reading": "Baseline read only lines 1-688 of 1452; continuation was truncated and never completed",
+    "vision_evidence": "All 12 image reads returned nonempty attachments successfully; provider-side pixel consumption is not established by this trace",
+    "retry_causes": [
+      "Unavailable runtime enum import copied from the supplied example",
+      "Repeated dimension association retries before inspecting solver-modified geometry",
+      "Diagnostic call to nonexistent IFace.GetGabarit",
+      "Driving dimension interpreted as absolute height instead of a relative level difference"
+    ],
+    "future_reflection_context": [
+      "Preserve macro exit status and require successful execution of the final source",
+      "Use targeted runtime and SDK contract checks before retrying the same operation",
+      "Bound drawing reinterpretation and retain a signed coordinate contract",
+      "Avoid unrelated directory listings and exhaustive pixel dumps"
+    ],
+    "validation_status": "Diagnostic evidence only; suggestions have not been replay-validated or adopted"
+  },
+  "next_experiment": "Reflect on actual operation-direction failures and source/artifact inconsistency, not more generic coordinate reminders; include baseline retry/status-masking evidence. Require successful run of final source and independent signed geometry verification. Keep existing safety boundaries."
 }
