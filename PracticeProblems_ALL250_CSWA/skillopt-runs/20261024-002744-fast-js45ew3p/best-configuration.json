@@ -1,0 +1,29 @@
+{
+  "attempt": "fast-candidate-5",
+  "settings": {
+    "worker_thinking": "low",
+    "worker_profile": "fast",
+    "worker_attached_inputs": true,
+    "worker_image_scale": 1,
+    "worker_attach_recipe": false
+  },
+  "skill_snapshot": "fast-candidate-5/workspace/skill/SKILL.md",
+  "skill_sha256": "81983ef8f3ff7f7dc16dce376caba9ec5ee51eae3b2385b90f2bb7b00aad8d11",
+  "worker_seconds": 186.064,
+  "worker_usage": {
+    "input": 16877,
+    "output": 23711,
+    "cacheRead": 514688,
+    "cacheWrite": 0,
+    "totalTokens": 555276,
+    "requests": 26,
+    "tools": {
+      "bash": 20,
+      "read": 5
+    }
+  },
+  "score": 1.0,
+  "target_met": false,
+  "adopted": false,
+  "scope": "Best single observed training-task replay, not a repeatability or held-out claim"
+}

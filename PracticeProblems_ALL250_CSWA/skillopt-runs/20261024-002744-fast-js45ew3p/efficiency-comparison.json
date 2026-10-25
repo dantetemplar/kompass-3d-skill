@@ -1,0 +1,66 @@
+{
+  "best_attempt": "fast-candidate-5",
+  "reference_attempt": "fast-candidate-2",
+  "passed": true,
+  "worker_seconds": 186.064,
+  "worker_usage": {
+    "input": 16877,
+    "output": 23711,
+    "cacheRead": 514688,
+    "cacheWrite": 0,
+    "totalTokens": 555276,
+    "requests": 26,
+    "tools": {
+      "bash": 20,
+      "read": 5
+    }
+  },
+  "target_seconds": 120,
+  "target_met": false,
+  "adopted": false,
+  "scope": "Task 1.1 pilot, best single observed replay selected; settings restored from fast-candidate-5, no live adoption or held-out validation",
+  "attempts": [
+    {
+      "id": "fast-candidate",
+      "passed": false,
+      "worker_seconds": 134.265,
+      "tokens": 360293
+    },
+    {
+      "id": "fast-candidate-2",
+      "passed": true,
+      "worker_seconds": 269.064,
+      "tokens": 1118699
+    },
+    {
+      "id": "fast-candidate-3",
+      "passed": false,
+      "worker_seconds": 299.708,
+      "tokens": 2118962
+    },
+    {
+      "id": "fast-candidate-4",
+      "passed": false,
+      "worker_seconds": 292.287,
+      "tokens": 1062070
+    },
+    {
+      "id": "fast-candidate-5",
+      "passed": true,
+      "worker_seconds": 186.064,
+      "tokens": 555276
+    },
+    {
+      "id": "fast-candidate-6",
+      "passed": true,
+      "worker_seconds": 325.869,
+      "tokens": 1880405
+    },
+    {
+      "id": "fast-candidate-7",
+      "passed": true,
+      "worker_seconds": 288.845,
+      "tokens": 880464
+    }
+  ]
+}

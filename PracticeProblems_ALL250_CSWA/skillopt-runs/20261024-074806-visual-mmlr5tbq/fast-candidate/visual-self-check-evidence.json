@@ -1,0 +1,42 @@
+{
+  "report_present": true,
+  "report_sha256": "3e0983aec70f978d5deb600eaf69e2b558a014a086351821fe1c22d10056f659",
+  "worker_claim": {
+    "status": "matched",
+    "final_preview": "draft-preview.jpg",
+    "visible_comparison": [
+      "The tall rectangular tower is at the left/back of the base, matching the drawing's isometric view.",
+      "Two lower rectangular steps descend toward the front/right, with widths 12 and 12 beyond the 20-wide tower, matching the top-view width chain 20-12-12.",
+      "The base block projects farther right than the lower step and has an exposed front ledge, as in the drawing.",
+      "A single round hole is visible on the front face, right of center, at the lower part of the base; its placement matches the front-view circle (16 from the right edge, 16 above the base bottom).",
+      "No visible feature mismatch or reflection was found; the screen isometry is a rotation of the drawing's isometric, not a mirrored part."
+    ],
+    "origin_check": "API bounds are X=0..60, Y=0..28, Z=0..75. The base front-left-bottom corner is at (0,0,0). The part extends into +Y (back) and +Z (up), matching the red origin at the front-view lower-left and the hole on the Y=0 front face.",
+    "corrections": [],
+    "volume_check": "The drawing-exact through-hole model measures 71953.27 mm3. The task's stated 72593 mm3 differs by 639.73 mm3. The difference could not be resolved by any single stated drawing dimension; the model was kept faithful to the dimensioned drawing and a through Ø12 hole rather than inventing an unshown blind-hole depth or changing a labelled size."
+  },
+  "final_preview_pixels_delivered": true,
+  "final_preview_sha256": "c4b48e551563ac32083f6544d428f803399b01420aaecd72858ea6f8e8803843",
+  "final_model_matches_preview_export": true,
+  "preview_exports": [
+    {
+      "preview": "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-074806-visual-mmlr5tbq/fast-candidate/workspace/draft-preview.jpg",
+      "model_sha256": "6eaf84cd4c88222b24403dc645ba8e172adddb33a64522e1f128db8b82893092",
+      "image_sha256": "c4b48e551563ac32083f6544d428f803399b01420aaecd72858ea6f8e8803843",
+      "model_unchanged": true,
+      "view_scheme": "ksVPSZ90AxonometricISO",
+      "tool_duration_ms": 5363
+    }
+  ],
+  "audit_note": "Hash binding recomputed from the saved trace after replay; no CAD calls or worker changes.",
+  "images_delivered": [
+    "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-074806-visual-mmlr5tbq/fast-candidate/workspace/draft-preview.jpg",
+    "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-074806-visual-mmlr5tbq/fast-candidate/workspace/front_crop.png",
+    "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-074806-visual-mmlr5tbq/fast-candidate/workspace/input/drawing.jpg",
+    "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-074806-visual-mmlr5tbq/fast-candidate/workspace/lab12.png",
+    "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-074806-visual-mmlr5tbq/fast-candidate/workspace/lab16.png",
+    "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-074806-visual-mmlr5tbq/fast-candidate/workspace/rightdim.png",
+    "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-074806-visual-mmlr5tbq/fast-candidate/workspace/top_crop.png"
+  ],
+  "limitation": "Tool transport evidence, not proof of visual reasoning or CAD correctness"
+}

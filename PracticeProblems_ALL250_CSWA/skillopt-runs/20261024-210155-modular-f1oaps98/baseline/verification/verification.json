@@ -1,0 +1,332 @@
+{
+  "task": "1.1",
+  "model": "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-210155-modular-f1oaps98/baseline/workspace/model.m3d",
+  "checked_at": "2026-10-24T21:07:15.067019+00:00",
+  "status": "passed",
+  "geometry_passed": true,
+  "native_tree_passed": true,
+  "sketches_fully_defined": true,
+  "checks": {
+    "origin": {
+      "passed": null,
+      "actual": "ignored by user policy",
+      "expected": "Absolute origin is not an acceptance criterion"
+    },
+    "worker_model_closed": {
+      "passed": true,
+      "actual": false,
+      "expected": false
+    },
+    "saved_artifact_opened": {
+      "passed": true,
+      "actual": "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-210155-modular-f1oaps98/baseline/workspace/model.m3d",
+      "expected": "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-210155-modular-f1oaps98/baseline/workspace/model.m3d"
+    },
+    "rebuild": {
+      "passed": true,
+      "actual": true,
+      "expected": true
+    },
+    "one_solid_body": {
+      "passed": true,
+      "actual": {
+        "body_count": 1,
+        "solid": true
+      },
+      "expected": {
+        "body_count": 1,
+        "solid": true
+      }
+    },
+    "extents_mm": {
+      "passed": null,
+      "actual": [
+        60.0,
+        28.000000000000004,
+        75.0
+      ],
+      "expected": "World-axis bounding box is diagnostic only: arbitrary proper rotations are allowed; teacher checks dimensions"
+    },
+    "feature_errors": {
+      "passed": true,
+      "actual": {
+        "count": 0,
+        "features": []
+      },
+      "expected": {
+        "count": 0
+      }
+    },
+    "native_sketches": {
+      "passed": true,
+      "actual": 2,
+      "expected": ">= 1"
+    },
+    "native_extrusions": {
+      "passed": true,
+      "actual": 2,
+      "expected": ">= 1"
+    },
+    "sketch_constraints": {
+      "passed": true,
+      "actual": [
+        1,
+        1
+      ],
+      "expected": 1
+    },
+    "volume_unit_calibration": {
+      "passed": true,
+      "actual": {
+        "reference_dimensions_mm": [
+          10,
+          10,
+          10
+        ],
+        "expected_mm3": 1000,
+        "raw_volume": 1000.0,
+        "length_units": "mm",
+        "candidate_scales": [
+          1,
+          1000
+        ],
+        "scale_to_mm3": 1
+      },
+      "expected": "Own 1000 mm3 cube matches scale 1 or 1000"
+    },
+    "volume_mm3": {
+      "passed": true,
+      "actual": {
+        "raw": 72593.27460518148,
+        "mm3": 72593.27460518148
+      },
+      "expected": {
+        "rounded_mm3": 72593,
+        "tolerance_mm3": 0.5,
+        "analytic_mm3": 72593.2746051815
+      }
+    },
+    "artifact_unchanged": {
+      "passed": true,
+      "actual": "7332f88017853e573306a3098115266d5fc3994e59e770474dcbcfb61ceee91e",
+      "expected": "7332f88017853e573306a3098115266d5fc3994e59e770474dcbcfb61ceee91e"
+    }
+  },
+  "errors": [],
+  "unit_calibration": {
+    "reference_dimensions_mm": [
+      10,
+      10,
+      10
+    ],
+    "expected_mm3": 1000,
+    "raw_volume": 1000.0,
+    "length_units": "mm",
+    "candidate_scales": [
+      1,
+      1000
+    ],
+    "scale_to_mm3": 1
+  },
+  "sha256_before": "7332f88017853e573306a3098115266d5fc3994e59e770474dcbcfb61ceee91e",
+  "warnings": [
+    "Absolute origin and world-axis orientation are ignored by user policy; translations and proper rotations are allowed, reflections are not.",
+    "WellConstrained (including fixed geometry) and dimension counts do not prove dimensional intent; teacher must review worker code.",
+    "Volume plus bounds is not full CAD correctness; teacher must review shape, individual dimensions and actual JPEG.",
+    "Document permits in-memory rebuild; no Save/SaveAs is issued and unchanged disk SHA-256 is required.",
+    "Native counts do not prove all features are dimension-driven; no dimension perturbation or dependency portability test is performed."
+  ],
+  "full_cad_correctness_verified": false,
+  "placement_policy": "rigid_motion_allowed_no_reflection",
+  "bounds_mm": [
+    0.0,
+    0.0,
+    -75.0,
+    60.0,
+    28.000000000000004,
+    1.7145055188062944e-15
+  ],
+  "extents_mm": [
+    60.0,
+    28.000000000000004,
+    75.0
+  ],
+  "features": [
+    {
+      "path": [
+        "Деталь"
+      ],
+      "error": 0,
+      "type": 104
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Плоскость XY"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Плоскость ZX"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Плоскость ZY"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Ось X"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Ось Y"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Ось Z"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Ступенчатый профиль"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Ступенчатая стойка"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Основание с отверстием"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Основание"
+      ],
+      "error": 0,
+      "type": 105
+    }
+  ],
+  "sketches": [
+    {
+      "index": 0,
+      "name": "Ступенчатый профиль",
+      "state": 1,
+      "fixed": false,
+      "fully_defined": true,
+      "dimensions": {
+        "Line": 6,
+        "Radial": 0,
+        "Diametral": 0,
+        "Angle": 0,
+        "BreakLine": 0,
+        "Height": 0,
+        "Arc": 0,
+        "BreakRadial": 0
+      }
+    },
+    {
+      "index": 1,
+      "name": "Основание с отверстием",
+      "state": 1,
+      "fixed": false,
+      "fully_defined": true,
+      "dimensions": {
+        "Line": 4,
+        "Radial": 1,
+        "Diametral": 0,
+        "Angle": 0,
+        "BreakLine": 0,
+        "Height": 0,
+        "Arc": 0,
+        "BreakRadial": 0
+      }
+    }
+  ],
+  "sketch_count": 2,
+  "fully_defined_sketch_count": 2,
+  "extrusion_count": 2,
+  "dimensions": {
+    "per_sketch": [
+      {
+        "Line": 6,
+        "Radial": 0,
+        "Diametral": 0,
+        "Angle": 0,
+        "BreakLine": 0,
+        "Height": 0,
+        "Arc": 0,
+        "BreakRadial": 0
+      },
+      {
+        "Line": 4,
+        "Radial": 1,
+        "Diametral": 0,
+        "Angle": 0,
+        "BreakLine": 0,
+        "Height": 0,
+        "Arc": 0,
+        "BreakRadial": 0
+      }
+    ],
+    "total": 11
+  },
+  "volume_mm3": 72593.27460518148,
+  "image": {
+    "file": "model.jpg",
+    "pixels": [
+      374,
+      526
+    ],
+    "source": "KOMPAS SaveAsToRasterFormat"
+  },
+  "sha256_after": "7332f88017853e573306a3098115266d5fc3994e59e770474dcbcfb61ceee91e",
+  "status_scope": "Automated evidence only, not full CAD correctness; overall success also requires independent teacher review of dimensions, shape and dimensional intent up to translation and proper rotation, never reflection."
+}

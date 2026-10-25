@@ -1,0 +1,338 @@
+{
+  "task": "1.1",
+  "model": "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-002744-fast-js45ew3p/fast-candidate-5/workspace/model.m3d",
+  "checked_at": "2026-10-24T01:04:11.610479+00:00",
+  "status": "passed",
+  "geometry_passed": true,
+  "native_tree_passed": true,
+  "sketches_fully_defined": true,
+  "checks": {
+    "origin": {
+      "passed": null,
+      "actual": "independently unverified",
+      "expected": "Red origin marker in the supplied drawing; teacher must inspect pixels"
+    },
+    "worker_model_closed": {
+      "passed": true,
+      "actual": false,
+      "expected": false
+    },
+    "saved_artifact_opened": {
+      "passed": true,
+      "actual": "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-002744-fast-js45ew3p/fast-candidate-5/workspace/model.m3d",
+      "expected": "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-002744-fast-js45ew3p/fast-candidate-5/workspace/model.m3d"
+    },
+    "rebuild": {
+      "passed": true,
+      "actual": true,
+      "expected": true
+    },
+    "one_solid_body": {
+      "passed": true,
+      "actual": {
+        "body_count": 1,
+        "solid": true
+      },
+      "expected": {
+        "body_count": 1,
+        "solid": true
+      }
+    },
+    "extents_mm": {
+      "passed": true,
+      "actual": [
+        60.0,
+        28.000000000000014,
+        75.0
+      ],
+      "expected": {
+        "sorted_mm": [
+          28,
+          60,
+          75
+        ],
+        "tolerance_mm": 1e-05
+      }
+    },
+    "feature_errors": {
+      "passed": true,
+      "actual": {
+        "count": 0,
+        "features": []
+      },
+      "expected": {
+        "count": 0
+      }
+    },
+    "native_sketches": {
+      "passed": true,
+      "actual": 2,
+      "expected": ">= 1"
+    },
+    "native_extrusions": {
+      "passed": true,
+      "actual": 2,
+      "expected": ">= 1"
+    },
+    "sketch_constraints": {
+      "passed": true,
+      "actual": [
+        1,
+        1
+      ],
+      "expected": 1
+    },
+    "volume_unit_calibration": {
+      "passed": true,
+      "actual": {
+        "reference_dimensions_mm": [
+          10,
+          10,
+          10
+        ],
+        "expected_mm3": 1000,
+        "raw_volume": 1000.0,
+        "length_units": "mm",
+        "candidate_scales": [
+          1,
+          1000
+        ],
+        "scale_to_mm3": 1
+      },
+      "expected": "Own 1000 mm3 cube matches scale 1 or 1000"
+    },
+    "volume_mm3": {
+      "passed": true,
+      "actual": {
+        "raw": 72593.2746051815,
+        "mm3": 72593.2746051815
+      },
+      "expected": {
+        "rounded_mm3": 72593,
+        "tolerance_mm3": 0.5,
+        "analytic_mm3": 72593.2746051815
+      }
+    },
+    "artifact_unchanged": {
+      "passed": true,
+      "actual": "5a1bd405b6631021e35d2f9e39de15365935a951bb56222734497a23803394b1",
+      "expected": "5a1bd405b6631021e35d2f9e39de15365935a951bb56222734497a23803394b1"
+    }
+  },
+  "errors": [],
+  "unit_calibration": {
+    "reference_dimensions_mm": [
+      10,
+      10,
+      10
+    ],
+    "expected_mm3": 1000,
+    "raw_volume": 1000.0,
+    "length_units": "mm",
+    "candidate_scales": [
+      1,
+      1000
+    ],
+    "scale_to_mm3": 1
+  },
+  "sha256_before": "5a1bd405b6631021e35d2f9e39de15365935a951bb56222734497a23803394b1",
+  "warnings": [
+    "Origin-marker placement and orientation independently unverified; extents allow axis permutations.",
+    "WellConstrained (including fixed geometry) and dimension counts do not prove dimensional intent; teacher must review worker code.",
+    "Volume plus bounds is not full CAD correctness; teacher must review shape, individual dimensions and actual JPEG.",
+    "Document permits in-memory rebuild; no Save/SaveAs is issued and unchanged disk SHA-256 is required.",
+    "Native counts do not prove all features are dimension-driven; no dimension perturbation or dependency portability test is performed."
+  ],
+  "full_cad_correctness_verified": false,
+  "bounds_mm": [
+    0.0,
+    -28.000000000000007,
+    -3.552713678800501e-15,
+    60.0,
+    7.105427357601002e-15,
+    75.0
+  ],
+  "extents_mm": [
+    60.0,
+    28.000000000000014,
+    75.0
+  ],
+  "features": [
+    {
+      "path": [
+        "Деталь"
+      ],
+      "error": 0,
+      "type": 104
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Плоскость XY"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Плоскость ZX"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Плоскость ZY"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Ось X"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Ось Y"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Начало координат",
+        "Ось Z"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Profile 0"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Элемент выдавливания:1"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Profile 1"
+      ],
+      "error": 0,
+      "type": 105
+    },
+    {
+      "path": [
+        "Деталь",
+        "Элемент выдавливания:2"
+      ],
+      "error": 0,
+      "type": 105
+    }
+  ],
+  "sketches": [
+    {
+      "index": 0,
+      "name": "Profile 0",
+      "state": 1,
+      "fixed": false,
+      "fully_defined": true,
+      "dimensions": {
+        "Line": 4,
+        "Radial": 1,
+        "Diametral": 0,
+        "Angle": 0,
+        "BreakLine": 0,
+        "Height": 0,
+        "Arc": 0,
+        "BreakRadial": 0
+      }
+    },
+    {
+      "index": 1,
+      "name": "Profile 1",
+      "state": 1,
+      "fixed": false,
+      "fully_defined": true,
+      "dimensions": {
+        "Line": 6,
+        "Radial": 0,
+        "Diametral": 0,
+        "Angle": 0,
+        "BreakLine": 0,
+        "Height": 0,
+        "Arc": 0,
+        "BreakRadial": 0
+      }
+    }
+  ],
+  "sketch_count": 2,
+  "fully_defined_sketch_count": 2,
+  "extrusion_count": 2,
+  "dimensions": {
+    "per_sketch": [
+      {
+        "Line": 4,
+        "Radial": 1,
+        "Diametral": 0,
+        "Angle": 0,
+        "BreakLine": 0,
+        "Height": 0,
+        "Arc": 0,
+        "BreakRadial": 0
+      },
+      {
+        "Line": 6,
+        "Radial": 0,
+        "Diametral": 0,
+        "Angle": 0,
+        "BreakLine": 0,
+        "Height": 0,
+        "Arc": 0,
+        "BreakRadial": 0
+      }
+    ],
+    "total": 11
+  },
+  "volume_mm3": 72593.2746051815,
+  "image": {
+    "file": "model.jpg",
+    "pixels": [
+      374,
+      526
+    ],
+    "source": "KOMPAS SaveAsToRasterFormat"
+  },
+  "sha256_after": "5a1bd405b6631021e35d2f9e39de15365935a951bb56222734497a23803394b1",
+  "status_scope": "Automated evidence only, not full CAD correctness; overall success also requires independent teacher review of origin, shape and dimensional intent."
+}

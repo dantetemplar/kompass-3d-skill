@@ -1,0 +1,16 @@
+{
+  "recipe": "skills/kompass-3d-skill/examples/18_orthogonal_profiles.py",
+  "cad": "Native KsAPI, existing Linux Kompas session",
+  "cases": [
+    {"plane": "XOY", "depth": 6, "bounds": [0, 0, 0, 43, 27, 6]},
+    {"plane": "XOY", "depth": -6, "bounds": [0, 0, -6, 43, 27, 0]},
+    {"plane": "XOZ", "depth": 6, "bounds": [0, 0, -27, 43, 6, 0]},
+    {"plane": "XOZ", "depth": -6, "bounds": [0, -6, -27, 43, 0, 0]},
+    {"case": "two profiles, negative local coordinates, internal circle", "bounds": [0, -17, 0, 47, 0, 53], "volume_mm3": 22074.205780556083}
+  ],
+  "checks": ["one solid", "signed bounds within 1e-5 mm", "analytic volume within 0.5 mm3", "fully constrained native sketches", "operation error codes"],
+  "command_wall_seconds_all_five_cases": 16.469,
+  "target_task_dimensions_used": false,
+  "not_qualified": ["general topology", "arbitrary sketch planes", "cuts", "all dimension perturbations", "persistence after reopen for qualification shapes"],
+  "live_skill_adopted": false
+}

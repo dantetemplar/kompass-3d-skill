@@ -214,14 +214,26 @@ class PracticePipelineReportTests(unittest.TestCase):
         (self.run / "baseline/verification/model.jpg").unlink()
         self.assertNotIn("✅", self.render())
 
+    def test_origin_is_not_required_for_pass(self) -> None:
+        review, _ = self.passed_evidence()
+        for origin in (False, None):
+            if origin is None:
+                review.pop("origin_checked", None)
+            else:
+                review["origin_checked"] = origin
+            self.write(self.run / "baseline/teacher-review.json", review)
+            text = self.render()
+            self.assertIn("✅ **Пройдено**", text)
+            self.assertNotIn("Начало координат не подтверждено", text)
+
     def test_incomplete_or_failed_checks_never_pass(self) -> None:
         review, verification = self.passed_evidence()
-        review["origin_checked"] = False
+        review["dimensional_intent_checked"] = False
         self.write(self.run / "baseline/teacher-review.json", review)
         text = self.render()
         self.assertNotIn("✅", text)
-        self.assertIn("Начало координат не подтверждено", text)
-        review["origin_checked"] = True
+        self.assertIn("Замысел размеров не проверен", text)
+        review["dimensional_intent_checked"] = True
         self.write(self.run / "baseline/teacher-review.json", review)
         verification["errors"] = [{"error": "preview failure"}]
         self.write(self.run / "baseline/verification/verification.json", verification)

@@ -1,0 +1,54 @@
+Solve ONLY Practice Problem 1.1 in the existing Kompas-3D API session.
+Read input/task.md and input/drawing.jpg. The full skill snapshot is supplied below; use its references only as needed. Use the supplied
+skill examples and SDK lookup as needed, but no previous solution to this task.
+Build a native editable part matching ALL dimensions and the indicated origin;
+sketches must be dimension-driven and fully defined, not fully fixed geometry.
+Create a standalone typed solution.py here and actually run it via
+bash skill/scripts/run.sh /absolute/path/to/solution.py .
+Save your completed part exactly as model.m3d here. Close ONLY your own document
+after saving; the teacher independently opens the saved file. Do not create the
+teacher's verification, screenshot, review or success report. Do not read old
+solutions, sibling attempts, teacher feedback or verifier source. Never modify
+the source repository or skill; write ONLY in this workspace. Do not read env,
+auth files or credentials. Never start, kill or restart Kompas. One CAD writer.
+If the session disconnects or a CAD call hangs, stop; no API cleanup after loss.
+Target: 60–120 seconds to a saved, closed correct model. Explain any missing/unchecked requirements honestly.
+
+<skill_snapshot>
+---
+name: kompass-3d-skill
+description: Создаёт и изменяет нативные редактируемые модели КОМПАС-3D через Python KsAPI.
+compatibility: КОМПАС-3D с лицензией и нативным KsAPI; Python 3.11+, uv, Bash; подготовленный SDK.
+---
+
+# КОМПАС-3D: короткий рабочий маршрут
+
+Цель — правильная нативная модель без лишнего исследования. Полные правила безопасности и параметризации из [reference-SKILL.md](reference-SKILL.md) обязательны. Для необычных операций читать только нужный раздел; сигнатуры уточнять адресно через `scripts/sdk.py doc`, при ошибке маршалинга — `inspect`/`page`.
+
+## Выбор маршрута
+
+Существующий документ изменять минимально: параметр → эскиз → операция → вхождение → сопряжение. Сначала искать открытый документ по абсолютному пути, затем при необходимости открывать; проверять тип и путь. Не заменять несохранённое состояние дисковой версией.
+
+Для новой детали из ортогональных плоских профилей сначала использовать [examples/18_orthogonal_profiles.py](examples/18_orthogonal_profiles.py): скопировать самостоятельный пример в `solution.py`, изменить `SPEC`, выполнить с `--output`. Не импортировать скилл как библиотеку и не переписывать готовый механизм связей. Маршрут проверен для XOY/XOZ и обоих знаков глубины, но не для произвольной топологии.
+
+`SPEC`: `profiles` — список `{plane: XOY|XOZ, vertices:[[u,v],...], circles:[[u,v,r],...], depth: signed}`; `bounds:[xmin,ymin,zmin,xmax,ymax,zmax]`; `volume` — мм³. Один замкнутый ортогональный многоугольник на профиль, без соседних коллинеарных рёбер; окружности строго внутри, без касаний и пересечений. Для каждой окружности обе координатные разности относительно первой вершины должны быть ненулевыми. Профили объединяются нативными выдавливаниями; окружности оставляют сквозные пустоты только в пределах своего профиля. Если условия не подходят, выбрать другой нативный рецепт из справочника.
+
+## Геометрический контракт
+
+До кода кратко зафиксировать размеры, базы, оси, сторону материала и один признак, отличающий форму от её отражения, по всем данным видам. Существенно недостающие размеры блокируют построение соответствующей геометрии: не выдумывать их; выдать доступный результат и явно назвать ограничение без запроса уточнений.
+
+Для указанного примера: XOY имеет `(u,v)=(X,Y)`, глубина направлена вдоль Z; XOZ имеет `(u,v)=(X,-Z)`, глубина направлена вдоль Y. Знак `depth` задаёт мировую сторону материала. В этом маршруте согласовать ОБЕ настройки: `SetDirection(dtNormal if depth>0 else dtReverse)` и `SetSideParameters(depth>0, etBlind, abs(depth), 0, False, None)`. Не переносить эту семантику на другие операции.
+
+Ожидаемые подписанные границы выводить из чертежа, а не из результата первого запуска. Не менять ожидания ради прохождения проверки. При заданном начале/стороне проверить фактические минимумы и максимумы координат и выбранный признак асимметрии; объём и размеры коробки отражение не исключают. При расхождении диагностировать конкретную настройку, не перебирать знаки вслепую.
+
+## Выполнение и приёмка
+
+Подключаться только через `ksapi.GetKompas()` к существующей сессии; самостоятельно CAD не запускать и не перезапускать. Один CAD-писатель, без параллельного API-инспектора. Сохранять нативные управляющие размеры и геометрические связи; тотальная фиксация не заменяет параметризацию.
+
+Запускать макрос без конвейера, скрывающего код завершения; при конвейере сохранять статус самого макроса. После успешного построения проверить ошибки затронутых операций, нужный геометрический признак и заданный объём. Не добавлять полный аудит, reopen и пробное изменение размеров без причины.
+
+После изменения исполняемого кода или проверочных ожиданий выполнить итоговый исходник заново в новый выходной каталог. Выдаваемая модель должна происходить из этого успешного запуска, а не из прежней попытки. Комментарии и assertions не доказывают исправление артефакта.
+
+Все новые выходы проверять на отсутствие до построения и перед записью; не удалять и не перезаписывать существующие файлы ради обхода диалога. Закрывать только собственные документы, одним владельцем, не более одного раза. При неизвестном исходе нативного вызова прекратить ВСЕ API-вызовы, включая cleanup; сохранить этап и ошибку, не повторять запись вслепую. Кратко сообщить фактический результат и ограничения.
+
+</skill_snapshot>

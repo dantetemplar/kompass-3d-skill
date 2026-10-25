@@ -1,0 +1,56 @@
+{
+  "id": "20261024-210155-modular-f1oaps98",
+  "task": "1.1",
+  "title": "Ступенчатый кронштейн — модульный скилл",
+  "worker_model": "deepseek-flash",
+  "teacher_model": "qgm-6.1-sol",
+  "teacher_thinking": "high",
+  "teacher_transport": "pi",
+  "worker_profile": "standard",
+  "worker_thinking": "high",
+  "worker_attached_inputs": false,
+  "worker_visual_self_check": false,
+  "skill_sha256": "1dd29edb421e2dd112a22dea110b873371d2802bd4066e7999e08961b3d52f11",
+  "skill_document_manifest_sha256": "12650a21a1e056524cf502eb72c66b922339705f0bb6ddf861fe8c8010d0b09b",
+  "started_at": "2026-10-24T21:01:55.446626+00:00",
+  "state": "complete",
+  "attempts": [
+    {
+      "id": "baseline",
+      "directory": "baseline",
+      "status": "passed",
+      "worker_thinking": "high",
+      "worker_profile": "standard",
+      "worker_attached_inputs": false,
+      "worker_image_scale": 1,
+      "worker_attach_recipe": false,
+      "worker_visual_self_check": false,
+      "preview_helper_sha256": null,
+      "skill_sha256": "1dd29edb421e2dd112a22dea110b873371d2802bd4066e7999e08961b3d52f11",
+      "worker_exit_code": 0,
+      "worker_seconds": 310.62,
+      "worker_usage": {
+        "input": 43619,
+        "output": 42087,
+        "cacheRead": 1981568,
+        "cacheWrite": 0,
+        "totalTokens": 2067274,
+        "requests": 43,
+        "tools": {
+          "bash": 33,
+          "read": 9,
+          "write": 1,
+          "edit": 1
+        }
+      },
+      "model_sha256": "7332f88017853e573306a3098115266d5fc3994e59e770474dcbcfb61ceee91e",
+      "verification_seconds": 11.792,
+      "teacher_seconds": 99.262,
+      "score": 1.0,
+      "hard": 1.0
+    }
+  ],
+  "scope": "Single training-task replay of current modular skill, no optimization, no isolated causal speed claim",
+  "isolation": "fresh context/workspace, not a security sandbox",
+  "adopted": false
+}

@@ -1,0 +1,121 @@
+{
+  "id": "20261024-002744-fast-js45ew3p",
+  "task": "1.1",
+  "title": "Ступенчатый кронштейн с отверстием — быстрый маршрут",
+  "worker_model": "deepseek-flash",
+  "worker_thinking": "off",
+  "worker_profile": "fast",
+  "teacher_model": "qgm-6.1-sol",
+  "teacher_transport": "pi",
+  "teacher_thinking": "high",
+  "skill_sha256": "7d9e68abf7b1a050275eac39fb95f8d8cb50779a5546ff820098fd453ee5067b",
+  "state": "complete",
+  "started_at": "2026-10-24T00:29:27.129310+00:00",
+  "attempts": [
+    {
+      "id": "fast-candidate",
+      "directory": "fast-candidate",
+      "status": "failed",
+      "skill_sha256": "d33d18678d94bae7c06784bad3148b4355429dfeee24172115b43a5fd701c7ea",
+      "worker_exit_code": 0,
+      "worker_seconds": 134.265,
+      "worker_usage": {
+        "input": 21312,
+        "output": 20645,
+        "cacheRead": 318336,
+        "cacheWrite": 0,
+        "totalTokens": 360293,
+        "requests": 14,
+        "tools": {
+          "read": 9,
+          "ls": 2,
+          "bash": 8,
+          "write": 1
+        }
+      },
+      "model_sha256": "28a67c964a7254cf31cdd240676527ee914bbe533b5e6ba031397c3c367d5bb0",
+      "verification_seconds": 9.304,
+      "teacher_seconds": 102.164,
+      "score": 0.75,
+      "hard": 0.0
+    },
+    {
+      "id": "fast-candidate-2",
+      "directory": "fast-candidate-2",
+      "status": "passed",
+      "skill_sha256": "81983ef8f3ff7f7dc16dce376caba9ec5ee51eae3b2385b90f2bb7b00aad8d11",
+      "worker_exit_code": 0,
+      "worker_seconds": 269.064,
+      "worker_usage": {
+        "input": 23396,
+        "output": 38919,
+        "cacheRead": 1056384,
+        "cacheWrite": 0,
+        "totalTokens": 1118699,
+        "requests": 39,
+        "tools": {
+          "read": 16,
+          "bash": 23,
+          "write": 1
+        }
+      },
+      "model_sha256": "08123df07059b4a7c687e9936b7b87e3bb0c114fce9f94052c4b9191f0576a15",
+      "verification_seconds": 8.406,
+      "teacher_seconds": 75.108,
+      "score": 1.0,
+      "hard": 1.0
+    },
+    {
+      "id": "fast-candidate-3",
+      "directory": "fast-candidate-3",
+      "status": "failed",
+      "skill_sha256": "81983ef8f3ff7f7dc16dce376caba9ec5ee51eae3b2385b90f2bb7b00aad8d11",
+      "worker_exit_code": 0,
+      "worker_seconds": 299.708,
+      "worker_usage": {
+        "input": 35471,
+        "output": 25891,
+        "cacheRead": 2057600,
+        "cacheWrite": 0,
+        "totalTokens": 2118962,
+        "requests": 81,
+        "tools": {
+          "read": 14,
+          "ls": 2,
+          "bash": 62,
+          "write": 1,
+          "edit": 3
+        }
+      },
+      "model_sha256": "90c92f52b6ae98ad2240a0a5abe6980ff732fafbff9fceadee8adbe01a1294b9",
+      "verification_seconds": 13.304,
+      "teacher_seconds": 83.936,
+      "score": 0.85,
+      "hard": 0.0
+    }
+  ],
+  "scope": "Task 1.1 training replay, same successful skill snapshot and helper; thinking off instead of low, not held-out",
+  "gate": {
+    "passed": false,
+    "target_seconds": 120,
+    "worker_seconds": 299.708,
+    "worker_usage": {
+      "input": 35471,
+      "output": 25891,
+      "cacheRead": 2057600,
+      "cacheWrite": 0,
+      "totalTokens": 2118962,
+      "requests": 81,
+      "tools": {
+        "read": 14,
+        "ls": 2,
+        "bash": 62,
+        "write": 1,
+        "edit": 3
+      }
+    },
+    "target_met": false,
+    "adopted": false,
+    "scope": "Task 1.1 training replay, same successful skill snapshot and helper; thinking off instead of low, not held-out"
+  }
+}

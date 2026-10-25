@@ -6,40 +6,18 @@
 
 ## Подключение скилла
 
-Установка для Cursor:
+Попросите агента провести установку скилла `kompass-3d-skill` — в скилле есть инструкция, агент установит сам.
+
+Запрос агенту: «Установи kompass-3d-skill и создай деталь по подходящему рецепту».
+
+<details>
+<summary>Установка вручную</summary>
 
 ```bash
 npx skills add dantetemplar/kompass-3d-skill --skill kompass-3d-skill -g -a cursor
 ```
 
-Для приватного репозитория необходимы доступ к нему и настроенная Git-аутентификация.
-
-Запрос агенту: «Используй kompass-3d-skill и создай деталь по подходящему рецепту».
-
-## Подготовка SDK
-
-Справка и стабы генерируются офлайн из файлов установленного КОМПАС и SDK. Генератор стабов анализирует исходный `ksapi.py`, не выполняя его и не запуская КОМПАС. Для офлайн-режима нужен заранее доступный Python 3.11+ — системный или установленный через `uv python install`. Выполните из каталога установленного скилла:
-
-```bash
-cd ~/.cursor/skills/kompass-3d-skill
-export LD_LIBRARY_PATH="/opt/ascon/kompas3d-v25/Bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-export PYTHONPATH="/opt/ascon/kompas3d-v25/Bin${PYTHONPATH:+:$PYTHONPATH}"
-export UV_OFFLINE=1
-export UV_PYTHON_DOWNLOADS=never
-uv run --script scripts/prepare/prepare_docs.py
-uv run --script scripts/prepare/prepare_stubs.py
-```
-
-Команды подготовки ничего не скачивают. `--help` описывает выбор установки и выходных каталогов. Справка сохраняется в `.cache/kompas-sdk-docs`, стабы — в `.cache/kompas-stubs` внутри скилла; кэши не включены в Git. При переносе подготовленного скилла копируйте `.cache` либо подготовьте SDK повторно. Для другого индекса используйте `KOMPAS_SDK_DOCS` или `scripts/sdk.py --docs /path/to/docs`.
-
-```bash
-cd ~/.cursor/skills/kompass-3d-skill
-uv run --script scripts/sdk.py search 'IExtrusions Add'
-uv run --script scripts/sdk.py page IExtrusions.Add ISketch.BeginEdit
-uv run --script scripts/sdk.py inspect IExtrusion.SetSideParameters --source
-```
-
-По умолчанию используется нативный KsAPI; Windows API7/API5 доступны только при явном `--section`. Подробности — в [справочнике KsAPI](skills/kompass-3d-skill/SKILL.md#справочник-рабочего-процесса-с-нативным-ksapi).
+</details>
 
 ## Запуск макросов
 
@@ -123,8 +101,8 @@ SkillOpt-Sleep формирует не более двух общих прави
 
 Справочные ссылки ниже не являются списком обязательного чтения.
 
-- [Рецепты](skills/kompass-3d-skill/SKILL.md#рецепты-для-компас-3d-на-python) и [01_plate.py](skills/kompass-3d-skill/examples/01_plate.py) — готовые реализации для адаптации и уточнения деталей.
-- [Справочник рабочего процесса с нативным KsAPI](skills/kompass-3d-skill/SKILL.md#справочник-рабочего-процесса-с-нативным-ksapi) — подробности при диагностике.
+- [Скилл и навигация по рецептам](skills/kompass-3d-skill/SKILL.md), [галерея](skills/kompass-3d-skill/references/examples.md) и [01_plate.py](skills/kompass-3d-skill/examples/01_plate.py) — готовые реализации для адаптации и уточнения деталей.
+- [SDK и сигнатуры](skills/kompass-3d-skill/references/setup-sdk.md), [документы и Undo](skills/kompass-3d-skill/references/documents.md), [проверки и диагностика](skills/kompass-3d-skill/references/validation.md) — подробности по необходимости.
 - [Официальный SDK](https://help.ascon.ru/KOMPAS_SDK/25/ru-RU/) — назначение и ограничения операций.
 - Локальные `ksapi.py`, `constants.py`, `constants3d.py` — фактические имена, сигнатуры и маршалинг; импорт ради этих данных не нужен.
 
@@ -155,7 +133,7 @@ SkillOpt-Sleep формирует не более двух общих прави
 
 ## Состав
 
-- `skills/kompass-3d-skill/` — автономный переносимый скилл: `SKILL.md` со справочником и рецептами, `examples/`, `scripts/`.
+- `skills/kompass-3d-skill/` — автономный переносимый скилл: компактный `SKILL.md`, тематические справочники и рецепты в `references/`, самостоятельные макросы в `examples/`, инструменты в `scripts/`.
 - `skills/kompass-3d-skill/scripts/prepare/` — офлайн-подготовка справки и типизированных стабов.
 - `macros/` — тестовые макросы разработки, не входят в устанавливаемый скилл.
 - `examples.md` — документация разработки: запуск примеров, проверки и измерения.

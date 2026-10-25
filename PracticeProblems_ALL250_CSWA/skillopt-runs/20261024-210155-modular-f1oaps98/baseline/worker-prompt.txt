@@ -1,0 +1,20 @@
+Solve ONLY Practice Problem 1.1 in the existing Kompas-3D API session.
+Read skill/SKILL.md fully, input/task.md and input/drawing.jpg. Use the supplied
+skill examples and SDK lookup as needed, but no previous solution to this task.
+Build a native editable part matching ALL dimensions and the drawing's shape;
+sketches must be dimension-driven and fully defined, not fully fixed geometry.
+Acceptance override for this practice: absolute origin and world-axis orientation
+are NOT requirements, even if the original task or skill asks for the marked origin.
+Choose convenient modeling datums; translations and proper rotations are allowed.
+Reflections, wrong relative feature placement and wrong dimensions still fail.
+Do not spend time reproducing the red origin marker or moving an otherwise correct part.
+Create a standalone typed solution.py here and actually run it via
+bash skill/scripts/run.sh /absolute/path/to/solution.py .
+Save your completed part exactly as model.m3d here. Close ONLY your own document
+after saving; the teacher independently opens the saved file. Do not create the
+teacher's verification, screenshot, review or success report. Do not read old
+solutions, sibling attempts, teacher feedback or verifier source. Never modify
+the source repository or skill; write ONLY in this workspace. Do not read env,
+auth files or credentials. Never start, kill or restart Kompas. One CAD writer.
+If the session disconnects or a CAD call hangs, stop; no API cleanup after loss.
+You have 15 minutes. Explain any missing/unchecked requirements honestly.

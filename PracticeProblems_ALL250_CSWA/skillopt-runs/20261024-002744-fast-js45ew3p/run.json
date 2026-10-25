@@ -1,0 +1,223 @@
+{
+  "id": "20261024-002744-fast-js45ew3p",
+  "task": "1.1",
+  "title": "Ступенчатый кронштейн с отверстием — быстрый маршрут",
+  "worker_model": "deepseek-flash",
+  "worker_thinking": "low",
+  "worker_profile": "fast",
+  "teacher_model": "qgm-6.1-sol",
+  "teacher_transport": "pi",
+  "teacher_thinking": "high",
+  "skill_sha256": "7d9e68abf7b1a050275eac39fb95f8d8cb50779a5546ff820098fd453ee5067b",
+  "state": "complete",
+  "started_at": "2026-10-24T00:29:27.129310+00:00",
+  "attempts": [
+    {
+      "id": "fast-candidate",
+      "directory": "fast-candidate",
+      "status": "failed",
+      "skill_sha256": "d33d18678d94bae7c06784bad3148b4355429dfeee24172115b43a5fd701c7ea",
+      "worker_exit_code": 0,
+      "worker_seconds": 134.265,
+      "worker_usage": {
+        "input": 21312,
+        "output": 20645,
+        "cacheRead": 318336,
+        "cacheWrite": 0,
+        "totalTokens": 360293,
+        "requests": 14,
+        "tools": {
+          "read": 9,
+          "ls": 2,
+          "bash": 8,
+          "write": 1
+        }
+      },
+      "model_sha256": "28a67c964a7254cf31cdd240676527ee914bbe533b5e6ba031397c3c367d5bb0",
+      "verification_seconds": 9.304,
+      "teacher_seconds": 102.164,
+      "score": 0.75,
+      "hard": 0.0
+    },
+    {
+      "id": "fast-candidate-2",
+      "directory": "fast-candidate-2",
+      "status": "passed",
+      "skill_sha256": "81983ef8f3ff7f7dc16dce376caba9ec5ee51eae3b2385b90f2bb7b00aad8d11",
+      "worker_exit_code": 0,
+      "worker_seconds": 269.064,
+      "worker_usage": {
+        "input": 23396,
+        "output": 38919,
+        "cacheRead": 1056384,
+        "cacheWrite": 0,
+        "totalTokens": 1118699,
+        "requests": 39,
+        "tools": {
+          "read": 16,
+          "bash": 23,
+          "write": 1
+        }
+      },
+      "model_sha256": "08123df07059b4a7c687e9936b7b87e3bb0c114fce9f94052c4b9191f0576a15",
+      "verification_seconds": 8.406,
+      "teacher_seconds": 75.108,
+      "score": 1.0,
+      "hard": 1.0
+    },
+    {
+      "id": "fast-candidate-3",
+      "directory": "fast-candidate-3",
+      "status": "passed",
+      "skill_sha256": "81983ef8f3ff7f7dc16dce376caba9ec5ee51eae3b2385b90f2bb7b00aad8d11",
+      "worker_exit_code": 0,
+      "worker_seconds": 299.708,
+      "worker_usage": {
+        "input": 35471,
+        "output": 25891,
+        "cacheRead": 2057600,
+        "cacheWrite": 0,
+        "totalTokens": 2118962,
+        "requests": 81,
+        "tools": {
+          "read": 14,
+          "ls": 2,
+          "bash": 62,
+          "write": 1,
+          "edit": 3
+        }
+      },
+      "model_sha256": "90c92f52b6ae98ad2240a0a5abe6980ff732fafbff9fceadee8adbe01a1294b9",
+      "verification_seconds": 13.304,
+      "teacher_seconds": 85.839,
+      "score": 1.0,
+      "hard": 1.0,
+      "placement_policy": "rigid_motion_allowed_no_reflection"
+    },
+    {
+      "id": "fast-candidate-4",
+      "directory": "fast-candidate-4",
+      "status": "passed",
+      "worker_thinking": "low",
+      "worker_profile": "fast",
+      "skill_sha256": "8f8399382a97440a5ce69d533b4e2e89f9c91336329c8601514e6b9c2559f807",
+      "worker_exit_code": 0,
+      "worker_seconds": 292.287,
+      "worker_usage": {
+        "input": 25283,
+        "output": 34035,
+        "cacheRead": 1002752,
+        "cacheWrite": 0,
+        "totalTokens": 1062070,
+        "requests": 41,
+        "tools": {
+          "bash": 28,
+          "read": 12,
+          "edit": 1
+        }
+      },
+      "model_sha256": "f299381b86010263c3403bb05dd8896f5981980365370592565f196ba775b0a3",
+      "verification_seconds": 15.428,
+      "teacher_seconds": 75.982,
+      "score": 1.0,
+      "hard": 1.0,
+      "placement_policy": "rigid_motion_allowed_no_reflection"
+    },
+    {
+      "id": "fast-candidate-5",
+      "directory": "fast-candidate-5",
+      "status": "passed",
+      "worker_thinking": "low",
+      "worker_profile": "fast",
+      "worker_attached_inputs": true,
+      "skill_sha256": "81983ef8f3ff7f7dc16dce376caba9ec5ee51eae3b2385b90f2bb7b00aad8d11",
+      "worker_exit_code": 0,
+      "worker_seconds": 186.064,
+      "worker_usage": {
+        "input": 16877,
+        "output": 23711,
+        "cacheRead": 514688,
+        "cacheWrite": 0,
+        "totalTokens": 555276,
+        "requests": 26,
+        "tools": {
+          "bash": 20,
+          "read": 5
+        }
+      },
+      "model_sha256": "5a1bd405b6631021e35d2f9e39de15365935a951bb56222734497a23803394b1",
+      "verification_seconds": 12.402,
+      "teacher_seconds": 89.911,
+      "score": 1.0,
+      "hard": 1.0
+    },
+    {
+      "id": "fast-candidate-6",
+      "directory": "fast-candidate-6",
+      "status": "passed",
+      "worker_thinking": "medium",
+      "worker_profile": "fast",
+      "worker_attached_inputs": true,
+      "skill_sha256": "81983ef8f3ff7f7dc16dce376caba9ec5ee51eae3b2385b90f2bb7b00aad8d11",
+      "worker_exit_code": 0,
+      "worker_seconds": 325.869,
+      "worker_usage": {
+        "input": 38135,
+        "output": 46686,
+        "cacheRead": 1795584,
+        "cacheWrite": 0,
+        "totalTokens": 1880405,
+        "requests": 39,
+        "tools": {
+          "bash": 27,
+          "read": 10,
+          "edit": 1
+        }
+      },
+      "model_sha256": "017167f87e9d848cc80a4690981c2fd7cfd0c4876149062180347ce8edec9b79",
+      "verification_seconds": 13.757,
+      "teacher_seconds": 70.116,
+      "score": 1.0,
+      "hard": 1.0
+    },
+    {
+      "id": "fast-candidate-7",
+      "directory": "fast-candidate-7",
+      "status": "passed",
+      "worker_thinking": "low",
+      "worker_profile": "fast",
+      "worker_attached_inputs": true,
+      "worker_image_scale": 3,
+      "worker_attach_recipe": true,
+      "skill_sha256": "81983ef8f3ff7f7dc16dce376caba9ec5ee51eae3b2385b90f2bb7b00aad8d11",
+      "worker_exit_code": 0,
+      "worker_seconds": 288.845,
+      "worker_usage": {
+        "input": 17063,
+        "output": 38057,
+        "cacheRead": 825344,
+        "cacheWrite": 0,
+        "totalTokens": 880464,
+        "requests": 28,
+        "tools": {
+          "bash": 21,
+          "read": 6
+        }
+      },
+      "model_sha256": "69cae2c4475d121b5e036b642d677f5d0688f503091f002c1967122fe0dc4662",
+      "verification_seconds": 12.223,
+      "teacher_seconds": 110.96,
+      "score": 1.0,
+      "hard": 1.0
+    }
+  ],
+  "scope": "Task 1.1 pilot, best single observed replay selected; settings restored from fast-candidate-5, no live adoption or held-out validation",
+  "worker_attached_inputs": true,
+  "worker_image_scale": 1,
+  "worker_attach_recipe": false,
+  "selected_attempt": "fast-candidate-5",
+  "review_history": [
+    "review-history/20261024-094343-225731",
+    "review-history/20261024-094518-612534"
+  ]
+}

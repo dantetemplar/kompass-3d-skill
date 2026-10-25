@@ -1,5 +1,6 @@
 """Offline checks for the standalone gallery; never imports native KsAPI."""
 import ast
+import importlib.util
 import math
 from pathlib import Path
 import re
@@ -17,6 +18,27 @@ RUNNER = Path(__file__).resolve().parents[1] / "tools" / "run_examples.py"
 NAMES = ["01_plate", "02_ring", "03_holes", "04_revolve", "05_offset_plane",
          "06_loft", "07_body_pattern", "08_boolean", "09_reposition", "10_assembly",
          "11_fillet_edit", "12_chamfer", "13_native_hole", "14_shell", "15_linear_pattern"]
+
+TOC_SPEC = importlib.util.spec_from_file_location("update_toc", RUNNER.with_name("update_toc.py"))
+toc = importlib.util.module_from_spec(TOC_SPEC)
+TOC_SPEC.loader.exec_module(toc)
+
+
+def skill_documents():
+    return [ROOT / "SKILL.md", *sorted((ROOT / "references").glob("*.md"))]
+
+
+def markdown_anchors(text):
+    used = set()
+    for _, _, title in toc.headings(text.splitlines()):
+        base = re.sub(r"[^\w\- ]", "", toc.plain_title(title).lower()).replace(" ", "-")
+        anchor = base
+        suffix = 0
+        while anchor in used:
+            suffix += 1
+            anchor = f"{base}-{suffix}"
+        used.add(anchor)
+    return used
 
 
 class GalleryTests(unittest.TestCase):
@@ -45,9 +67,9 @@ class GalleryTests(unittest.TestCase):
 
         for path in EXAMPLES.rglob("*.py"):
             check(ast.parse(path.read_text()), path)
-        skill = ROOT / "SKILL.md"
-        for snippet in re.findall(r"```python\n(.*?)\n```", skill.read_text(), re.DOTALL):
-            check(ast.parse(snippet), skill)
+        for document in skill_documents():
+            for snippet in re.findall(r"```python\n(.*?)\n```", document.read_text(), re.DOTALL):
+                check(ast.parse(snippet), document)
 
     def test_examples_are_standalone_scripts(self):
         for name in NAMES:
@@ -102,32 +124,63 @@ class GalleryTests(unittest.TestCase):
     def test_development_assets_are_outside_the_skill(self):
         repository = ROOT.parents[1]
         self.assertFalse((EXAMPLES / "macros").exists())
-        self.assertFalse((ROOT / "references/examples.md").exists())
         for name in ("hello_box", "draw_rectangle", "touch_active"):
             self.assertTrue((repository / "macros" / f"{name}.py").is_file())
         self.assertTrue((repository / "examples.md").is_file())
 
-    def test_documentation_local_links_exist(self):
+    def test_anchor_check_ignores_code_and_handles_duplicate_headings(self):
+        text = ('---\nname: gallery\n---\n# Пример\n'
+                '```python\n# Not a heading\n```\n'
+                '## **SDK** и `KsAPI`\n#### Повтор\n#### Повтор\n')
+        self.assertEqual(markdown_anchors(text),
+                         {"пример", "sdk-и-ksapi", "повтор", "повтор-1"})
+
+    def test_documentation_local_links_and_anchors_exist(self):
         repository = ROOT.parents[1]
-        documents = [repository / "README.md", repository / "examples.md",
-                     ROOT / "SKILL.md", *sorted((ROOT / "references").glob("*.md"))]
+        documents = [repository / "README.md", repository / "examples.md", *skill_documents()]
         for document in documents:
             for url in re.findall(r'\]\(([^)]+)\)', document.read_text()):
-                if "://" not in url and not url.startswith("#"):
-                    with self.subTest(document=document, url=url):
-                        self.assertTrue((document.parent / url.split("#")[0]).exists(), url)
+                if "://" in url:
+                    continue
+                with self.subTest(document=document, url=url):
+                    path, _, fragment = url.partition("#")
+                    target = document.parent / path if path else document
+                    self.assertTrue(target.exists(), url)
+                    if fragment and target.suffix == ".md":
+                        self.assertIn(fragment, markdown_anchors(target.read_text()), url)
+
+    def test_all_references_are_directly_accessible_from_compact_entry(self):
+        entry = (ROOT / "SKILL.md").read_text()
+        self.assertLessEqual(len(entry.splitlines()), 200)
+        targets = [target.split("#")[0] for target in re.findall(r"\]\(([^)]+)\)", entry)]
+        references = sorted((ROOT / "references").rglob("*.md"))
+        expected = {"setup-sdk.md", "modeling.md", "documents.md", "sketches.md",
+                    "features.md", "assemblies.md", "validation.md", "examples.md"}
+        self.assertTrue(expected <= {document.name for document in references})
+        for document in references:
+            with self.subTest(document=document):
+                self.assertEqual(document.parent, ROOT / "references")
+                self.assertIn(f"references/{document.name}", targets)
+
+    def test_all_numbered_recipes_are_preserved_once(self):
+        numbers = []
+        for document in skill_documents():
+            for _, _, title in toc.headings(document.read_text().splitlines()):
+                match = re.match(r"(\d+)\. ", title)
+                if match:
+                    numbers.append(int(match[1]))
+        self.assertEqual(sorted(numbers), list(range(1, 36)))
 
     def test_gallery_local_links_exist(self):
-        text = (ROOT / "SKILL.md").read_text()
-        for name in NAMES:
-            self.assertIn(f"examples/{name}.py", text)
-            self.assertIn(f"examples/{name}.jpg", text)
-            path = EXAMPLES / f"{name}.jpg"
-            self.assertTrue(path.is_file(), path)
-            self.assertGreater(path.stat().st_size, 1000)
-        for url in re.findall(r'\]\(([^)]+)\)', text):
-            if "://" not in url and not url.startswith("#"):
-                self.assertTrue((ROOT / url.split("#")[0]).exists(), url)
+        gallery = ROOT / "references/examples.md"
+        text = gallery.read_text()
+        for name in [*NAMES, "17_raster_preview"]:
+            with self.subTest(name=name):
+                self.assertIn(f"../examples/{name}.py", text)
+                self.assertIn(f"../examples/{name}.jpg", text)
+                path = EXAMPLES / f"{name}.jpg"
+                self.assertTrue(path.is_file(), path)
+                self.assertGreater(path.stat().st_size, 1000)
 
 
 class RasterSafetyTests(unittest.TestCase):

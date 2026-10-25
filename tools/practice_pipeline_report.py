@@ -101,7 +101,7 @@ def _result(root: Path, workspace: Path, attempt: dict[str, Any], run_error: str
     verified = all(verification.get(key) is True for key in
                    ("geometry_passed", "native_tree_passed", "sketches_fully_defined"))
     passed = (all(review.get(key) is True for key in
-                  ("passed", "visual_checked", "dimensional_intent_checked", "origin_checked"))
+                  ("passed", "visual_checked", "dimensional_intent_checked"))
               and verified and verification.get("status") == "passed"
               and not verification.get("errors") and (workspace / "verification/model.jpg").is_file()
               and attempt.get("status") == "passed" and attempt.get("worker_exit_code") == 0)
@@ -139,8 +139,7 @@ def _result(root: Path, workspace: Path, attempt: dict[str, Any], run_error: str
                 if verification.get(key) is False:
                     reasons.append(label)
             for key, label in (("visual_checked", "Визуальная проверка не завершена"),
-                               ("dimensional_intent_checked", "Замысел размеров не проверен"),
-                               ("origin_checked", "Начало координат не подтверждено")):
+                               ("dimensional_intent_checked", "Замысел размеров не проверен")):
                 if review.get(key) is False:
                     reasons.append(label)
         if attempt.get("worker_exit_code") not in (None, 0):
@@ -163,6 +162,10 @@ def render_report(root: Path) -> Path:
              "Эксперимент только на одном задании; независимой heldout-выборки нет. "
              "Обобщение качества не доказано. Автоматического принятия скилла нет: решение принимает человек. "
              "CAD выполняется последовательно, один исполнитель за раз.", "",
+             "По текущему критерию пользователя абсолютное начало координат и ориентация мировых осей "
+             "не влияют на приёмку: допустимы перенос и собственный поворот, но не отражение. "
+             "Размеры, взаимное расположение элементов и нативная параметризация остаются обязательными. "
+             "Старые рецензии сохраняются в истории при переоценке.", "",
              "Время — длительность работы исполнителя из времени, отведённого в задании; ⚠️ — превышение. "
              "Токены — все запросы исполнителя, включая кэш. Подробности проверок доступны по ссылкам на JSON.", "",
              "| Задание | Решение | Результат | Предполагаемый результат |",
@@ -188,12 +191,14 @@ def render_report(root: Path) -> Path:
                                 (workspace / "teacher-pi/harness.json", "Harness учителя"),
                                 (workspace / "verification/verification.json", "Верификация JSON"),
                                 (workspace / "teacher-review.json", "Рецензия JSON"),
+                                (workspace / "visual-self-check-evidence.json", "Самопроверка исполнителя"),
+                                (workspace / "workspace/self-check.json", "Сравнение с чертежом"),
                                 (workspace / "report-preview.json", "Превью JSON")):
                 solution.append(_link(root, path, label))
             cells = (task_cell, "<br>".join(part for part in solution if part),
                      _result(root, workspace, attempt, run.get("error")), expected)
             lines.append("| " + " | ".join(cells) + " |")
-    if len(lines) == 8:
+    if lines[-1] == "| --- | --- | --- | --- |":
         lines.append("| — | Изолированных попыток пока нет | Успех не подтверждён | — |")
     destination = root / "PRACTICE.md"
     destination.write_text("\n".join(lines) + "\n", encoding="utf-8")

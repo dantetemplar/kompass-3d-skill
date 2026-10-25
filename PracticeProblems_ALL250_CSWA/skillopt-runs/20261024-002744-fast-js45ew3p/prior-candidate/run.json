@@ -1,0 +1,50 @@
+{
+  "id": "20261024-002744-fast-js45ew3p",
+  "task": "1.1",
+  "title": "Ступенчатый кронштейн с отверстием — быстрый маршрут",
+  "worker_model": "deepseek-flash",
+  "worker_thinking": "low",
+  "worker_profile": "fast",
+  "teacher_model": "qgm-6.1-sol",
+  "teacher_transport": "pi",
+  "teacher_thinking": "high",
+  "skill_sha256": "7d9e68abf7b1a050275eac39fb95f8d8cb50779a5546ff820098fd453ee5067b",
+  "state": "complete",
+  "started_at": "2026-10-24T00:29:27.129310+00:00",
+  "attempts": [
+    {
+      "id": "fast-candidate",
+      "directory": "fast-candidate",
+      "status": "failed",
+      "skill_sha256": "d33d18678d94bae7c06784bad3148b4355429dfeee24172115b43a5fd701c7ea",
+      "worker_exit_code": 0,
+      "worker_seconds": 134.265,
+      "worker_usage": {
+        "input": 21312,
+        "output": 20645,
+        "cacheRead": 318336,
+        "cacheWrite": 0,
+        "totalTokens": 360293,
+        "requests": 14,
+        "tools": {
+          "read": 9,
+          "ls": 2,
+          "bash": 8,
+          "write": 1
+        }
+      },
+      "model_sha256": "28a67c964a7254cf31cdd240676527ee914bbe533b5e6ba031397c3c367d5bb0",
+      "verification_seconds": 9.304,
+      "teacher_seconds": 102.164,
+      "score": 0.75,
+      "hard": 0.0
+    }
+  ],
+  "scope": "same training task; new helper, skill and thinking setting; not held-out or isolated skill-only effect",
+  "gate": {
+    "accepted": false,
+    "pilot_improved": false,
+    "target_met": false,
+    "scope": "same training task; new helper, skill and thinking setting; not held-out or isolated skill-only effect"
+  }
+}

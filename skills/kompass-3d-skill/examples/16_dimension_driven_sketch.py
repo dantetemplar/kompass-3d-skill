@@ -28,7 +28,7 @@ import time
 from typing import NotRequired, TypeVar, TypedDict, Unpack
 
 import ksapi
-from constants import constants as c, ksConstraintTypeEnum, ksLineDimensionOrientationEnum
+from constants import constants as c
 from constants3d import constants as c3d
 
 TOL = 1e-5
@@ -131,7 +131,7 @@ def edit(sketch: ksapi.ISketch) -> Iterator[tuple[ksapi.IKompasDocument2D, ksapi
 
 def constraint(
     obj: ksapi.IDrawingObject,
-    kind: ksConstraintTypeEnum,
+    kind: int,
     *,
     partners: Sequence[ksapi.IDrawingObject] = (),
     index: int | None = None,
@@ -166,7 +166,7 @@ def driving_dimension(dim: DrawingT, name: str, value: float) -> DrawingT:
 def linear_dimension(
     symbols: ksapi.ISymbols2DContainer,
     points: Sequence[Point2],
-    orientation: ksLineDimensionOrientationEnum,
+    orientation: int,
     partners: Sequence[tuple[ksapi.IDrawingObject, int]],
     name: str,
     value: float,

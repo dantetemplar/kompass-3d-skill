@@ -1,0 +1,22 @@
+{
+  "passed": false,
+  "target_seconds": 120,
+  "worker_seconds": 134.265,
+  "worker_usage": {
+    "input": 21312,
+    "output": 20645,
+    "cacheRead": 318336,
+    "cacheWrite": 0,
+    "totalTokens": 360293,
+    "requests": 14,
+    "tools": {
+      "read": 9,
+      "ls": 2,
+      "bash": 8,
+      "write": 1
+    }
+  },
+  "target_met": false,
+  "adopted": false,
+  "scope": "same training task; new helper, skill and thinking setting; not held-out or isolated skill-only effect"
+}

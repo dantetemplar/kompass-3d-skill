@@ -1,0 +1,89 @@
+{
+  "goal": "Correct native editable model within 60–120 worker seconds; reduce tokens",
+  "diagnosis": {
+    "scope": "Single training task 1.1, no held-out evidence, no live skill adoption",
+    "baseline": {
+      "passed": false,
+      "worker_seconds": 546.509,
+      "worker_tokens": 4418104
+    },
+    "replays": [
+      {
+        "id": "candidate",
+        "passed": false,
+        "worker_seconds": 489.411,
+        "worker_tokens": 4481194,
+        "guidance_delivery": "learned tail absent from direct SKILL.md reads"
+      },
+      {
+        "id": "candidate-2",
+        "passed": false,
+        "worker_seconds": 469.935,
+        "worker_tokens": 2413974,
+        "guidance_delivery": "learned tail absent from direct SKILL.md reads"
+      },
+      {
+        "id": "candidate-3",
+        "passed": false,
+        "worker_seconds": 541.432,
+        "worker_tokens": 3886011,
+        "guidance_delivery": "exact learned block explicitly supplied in worker prompt",
+        "failure": "Depth reflection remains in saved model; code and artifact intent disagree"
+      }
+    ],
+    "adopted": false,
+    "gate": "reject: correctness required regardless of speed/token gains",
+    "findings": [
+      "Pi read limits truncate the skill before the managed learned block; worker prompt now includes this block verbatim for both baseline and candidate snapshots",
+      "Candidate-3 explicitly planned negative Y but saved an artifact with positive Y after failed direction experiments",
+      "Worker tool outputs report bounds Y=0..28 at successful save; final source instead contains EXPECTED_BOUNDS Y=-28..0 and corresponding assertions",
+      "All candidate teacher image hashes are identical, and all saved artifacts remain on the wrong side by independent B-rep inspection",
+      "Fewer worker tokens alone do not establish valid skill improvement or monetary savings"
+    ],
+    "baseline_trace_analysis": {
+      "source": "Read-only trace analysis returned by task 283d3fbb-9b3d-465d-b2f7-8855931a4a79",
+      "macro_launches": 8,
+      "failed_macro_launches": 7,
+      "failure_status_issue": "Macro invocations piped through tail without pipefail masked upstream failures; tool isError=false did not establish successful execution",
+      "drawing_interpretation": {
+        "tool_calls": 27,
+        "image_reads": 12,
+        "model_seconds": 203.6,
+        "output_tokens": 34250,
+        "reasoning_tokens_included_in_output": 30525
+      },
+      "cache_read_share_percent": 96.7,
+      "cache_interpretation": "Aggregate token count mainly represents repeated cached context, not unique tokens or a direct monetary cost",
+      "skill_reading": "Baseline read only lines 1-688 of 1452; continuation was truncated and never completed",
+      "vision_evidence": "All 12 image reads returned nonempty attachments successfully; provider-side pixel consumption is not established by this trace",
+      "retry_causes": [
+        "Unavailable runtime enum import copied from the supplied example",
+        "Repeated dimension association retries before inspecting solver-modified geometry",
+        "Diagnostic call to nonexistent IFace.GetGabarit",
+        "Driving dimension interpreted as absolute height instead of a relative level difference"
+      ],
+      "future_reflection_context": [
+        "Preserve macro exit status and require successful execution of the final source",
+        "Use targeted runtime and SDK contract checks before retrying the same operation",
+        "Bound drawing reinterpretation and retain a signed coordinate contract",
+        "Avoid unrelated directory listings and exhaustive pixel dumps"
+      ],
+      "validation_status": "Diagnostic evidence only; suggestions have not been replay-validated or adopted"
+    },
+    "next_experiment": "Reflect on actual operation-direction failures and source/artifact inconsistency, not more generic coordinate reminders; include baseline retry/status-masking evidence. Require successful run of final source and independent signed geometry verification. Keep existing safety boundaries."
+  },
+  "candidate_contract": "One whole SKILL.md replace edit; <=4000 characters, general reusable guidance only",
+  "qualified_recipe": {
+    "path": "examples/18_orthogonal_profiles.py",
+    "use": "Copy standalone example to solution.py. Set SPEC via edit; run with --output. No imports from skill as runtime library.",
+    "spec": "profiles: list of {plane: XOY|XOZ, vertices:[[u,v],...], circles:[[u,v,r],...], depth:signed}; bounds:[xmin,ymin,zmin,xmax,ymax,zmax]; volume:mm3",
+    "meaning": "XOY (u,v)=(X,Y), signed depth along Z. XOZ (u,v)=(X,-Z), signed depth along Y. Single orthogonal closed polygon per profile, optional enclosed circles, no adjacent collinear edges. Each circle must have nonzero u and v offset from the first polygon vertex. Profiles union via native bosses; internal circles leave through voids within that profile.",
+    "evidence": "Four native builds: XOY/XOZ with positive/negative depth, fully constrained sketches, one solid, measured signed bounds and volume. No general topology coverage claimed.",
+    "direction": "SetDirection(dtNormal if depth>0 else dtReverse); SetSideParameters(depth>0, etBlind, abs(depth),0,False,None). Both settings must agree.",
+    "routine_work": "Read recipe only if needed, copy, supply dimensions/geometry, run once without pipelines masking status. Do not recode constraints or perform exhaustive drawing-crop exploration. If final source changes after run, run final source again to a fresh output.",
+    "safety": "Existing session only; one writer; new output; close owned document only; no further API calls after unknown native failure. Missing dimensions block rather than guessing."
+  },
+  "reference": "The original full skill is available in candidate workspace as skill/reference-SKILL.md",
+  "time_boundary": "Worker process includes drawing interpretation, code construction, CAD execution/save/close; verifier and teacher measured separately",
+  "trial": "Worker deepseek-flash thinking=low; worker profile=fast. This changes harness too, not an isolated skill-only effect; no held-out adoption."
+}

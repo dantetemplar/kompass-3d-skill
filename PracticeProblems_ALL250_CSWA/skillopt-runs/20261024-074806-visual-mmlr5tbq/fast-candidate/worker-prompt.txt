@@ -1,0 +1,76 @@
+Solve ONLY Practice Problem 1.1 in the existing Kompas-3D API session.
+The original task text and drawing are attached to this initial message; use them directly, without rereading those same files. The full skill snapshot is supplied below; use its references only as needed. Use the supplied
+skill examples and SDK lookup as needed, but no previous solution to this task.
+Build a native editable part matching ALL dimensions and the indicated origin;
+sketches must be dimension-driven and fully defined, not fully fixed geometry.
+Create a standalone typed solution.py here and actually run it via
+bash skill/scripts/run.sh /absolute/path/to/solution.py .
+Build first to draft/model.m3d; reserve model.m3d for the visually checked final artifact. Close ONLY your own document
+after saving; the teacher independently opens the saved file. Do not create the
+teacher's verification, screenshot, review or success report. Do not read old
+solutions, sibling attempts, teacher feedback or verifier source. Never modify
+the source repository or skill; write ONLY in this workspace. Do not read env,
+auth files or credentials. Never start, kill or restart Kompas. One CAD writer.
+If the session disconnects or a CAD call hangs, stop; no API cleanup after loss.
+Target: 60–120 seconds to a saved, closed correct model. Explain any missing/unchecked requirements honestly.
+
+<skill_snapshot>
+---
+name: kompass-3d-skill
+description: Создаёт и изменяет нативные редактируемые модели КОМПАС-3D через Python KsAPI.
+compatibility: КОМПАС-3D с лицензией и нативным KsAPI; Python 3.11+, uv, Bash; подготовленный SDK.
+---
+
+# КОМПАС-3D: короткий рабочий маршрут
+
+Цель — правильная нативная модель без лишнего исследования. Полные правила безопасности и параметризации из [reference-SKILL.md](reference-SKILL.md) обязательны. Для необычных операций читать нужный раздел; сигнатуры уточнять адресно через `scripts/sdk.py doc`, при ошибке маршалинга — `inspect`/`page`.
+
+## Выбор маршрута
+
+Существующий документ изменять минимально: параметр → эскиз → операция → вхождение → сопряжение. Искать открытый документ по абсолютному пути, затем при необходимости открывать; проверить тип и путь. Не заменять несохранённое состояние дисковой версией.
+
+Для новой детали из ортогональных профилей скопировать самостоятельный [examples/18_orthogonal_profiles.py](examples/18_orthogonal_profiles.py) в `solution.py`, изменить только `SPEC`. Не импортировать скилл как библиотеку, не переписывать механизм связей. Не повторять импорты, обзоры каталогов и нарезку чертежа без конкретной необходимости.
+
+`SPEC`: `profiles` — список `{plane: XOY|XOZ, vertices:[[u,v],...], circles:[[u,v,r],...], depth:signed}`; `bounds:[xmin,ymin,zmin,xmax,ymax,zmax]`; `volume` — мм³. Один замкнутый ортогональный многоугольник на профиль, без соседних коллинеарных рёбер. Окружности строго внутри, без касаний и пересечений; обе координатные разности центра относительно первой вершины ненулевые. Профили объединяются нативными выдавливаниями; окружности оставляют сквозные пустоты в пределах своего профиля. Маршрут проверен для XOY/XOZ и обоих знаков глубины, не для произвольной топологии. Если условия не подходят, выбрать другой нативный рецепт из справочника.
+
+## Геометрический контракт
+
+До кода кратко зафиксировать размеры, базы, оси, подписанные интервалы материала и признак асимметрии по всем видам. Существенно недостающие размеры блокируют соответствующее построение: не угадывать геометрию; выдать доступный результат и назвать ограничение без запроса уточнений.
+
+В правой системе при фронтальном виде с X вправо и Z вверх положительная Y направлена ОТ наблюдателя, не к нему. От отмеченного начала вывести подписанные интервалы, затем глубины; не выбирать знак по привычному экранному виду.
+
+В указанном рецепте XOY: `(u,v)=(X,Y)`, глубина вдоль Z; XOZ: `(u,v)=(X,-Z)`, глубина вдоль Y. Согласовать ОБЕ настройки: `SetDirection(dtNormal if depth>0 else dtReverse)` и `SetSideParameters(depth>0, etBlind, abs(depth), 0, False, None)`. Не переносить эту семантику на другие операции.
+
+Ожидаемые границы выводить из чертежа, не из первого запуска. При заданных начале и стороне проверка фактических минимумов/максимумов и признака асимметрии ОБЯЗАТЕЛЬНА, даже если общий маршрут допускает проверку только объёма: объём и размеры коробки отражение не исключают. При расхождении диагностировать конкретную настройку, не перебирать знаки и не подгонять ожидания.
+
+## Выполнение и приёмка
+
+Только существующая сессия через `ksapi.GetKompas()`; CAD не запускать и не перезапускать. Один CAD-писатель, без параллельного API-инспектора. Сохранять нативные управляющие размеры и связи; тотальная фиксация не заменяет параметризацию.
+
+Запуск: `bash skill/scripts/run.sh solution.py --output ABS_NEW_PATH`. Не скрывать код завершения конвейером; при конвейере сохранить статус макроса. Проверить ошибки затронутых операций, нужный геометрический признак и заданный объём; без причины не добавлять полный аудит, reopen или тест изменения размеров.
+
+После правки кода или ожиданий заново выполнить итоговый исходник в новый выходной каталог. Выдавать только модель из этого успешного запуска; комментарии и assertions не исправляют прежний артефакт.
+
+Все новые выходы проверять на отсутствие до построения и перед записью; не удалять и не перезаписывать файлы ради обхода диалога. Закрывать только собственные документы, одним владельцем, не более одного раза. При неизвестном исходе нативного вызова прекратить ВСЕ API-вызовы, включая cleanup; сохранить этап и ошибку, не повторять запись вслепую. Кратко сообщить фактический результат и ограничения.
+
+</skill_snapshot>
+
+VISUAL SELF-CHECK (your own draft preview, NOT teacher evidence):
+After your first successful saved/closed draft, run exactly:
+bash skill/scripts/run.sh preview.py --model draft/model.m3d --output draft-preview.jpg
+Then use the read IMAGE tool on draft-preview.jpg. Actually inspect the returned pixels
+and compare them with the original drawing. Describe a few concrete visible matches or
+mismatches: feature placement, ledges/recesses, holes and asymmetry. Distinguish a proper
+rotation from a reflection; do not change geometry just to imitate a screen orientation.
+Check the marked origin against signed coordinates independently: an isometry alone cannot
+prove origin or exact dimensions. Do not measure dimensioned geometry from raster pixels.
+If a specific mismatch is visible, correct solution.py and rebuild ONCE to a fresh
+corrected/model.m3d, export corrected-preview.jpg with the same helper and read it again.
+Do not overwrite models/previews, weaken expected bounds, or guess missing dimensions.
+Copy the successfully checked draft (or corrected model) to the still-absent model.m3d.
+Write self-check.json: status (matched|corrected|blocked), final_preview (relative path),
+visible_comparison (list of concrete observations), origin_check (text), corrections (list).
+No claim of a visual match without seeing pixels; if preview/tool transport fails, stop and
+report the blocker. If a native preview call fails/hangs, no further CAD calls or cleanup.
+The preview helper opens only a CLOSED owned draft, uses an explicit Z-up ISO view,
+closes without saving, and verifies its hash unchanged. No verifier feedback is available.

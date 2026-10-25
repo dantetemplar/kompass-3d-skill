@@ -22,6 +22,61 @@ class PipelineTests(unittest.TestCase):
         self.assertNotIn("long reference", prompt)
         self.assertNotIn("Managed guidance", pipeline.worker_prompt("# no managed block"))
 
+    def test_fast_prompt_contains_entire_snapshot_and_target(self):
+        snapshot = "# Compact reusable skill\nNever guess missing dimensions."
+        prompt = pipeline.worker_prompt(snapshot, profile="fast")
+        self.assertIn(snapshot, prompt)
+        self.assertIn("60–120 seconds", prompt)
+        self.assertNotIn("Read skill/SKILL.md fully", prompt)
+        self.assertIn("read old", prompt)
+        self.assertIn("Never start, kill or restart Kompas", prompt)
+
+    def test_fast_attached_inputs_prompt_avoids_duplicate_reads(self):
+        prompt = pipeline.worker_prompt("compact skill", profile="fast", attached_inputs=True)
+        self.assertIn("task text and drawing are attached", prompt)
+        self.assertNotIn("Read input/task.md and input/drawing.jpg", prompt)
+        self.assertIn("compact skill", prompt)
+        self.assertNotIn("matching ALL dimensions and the indicated origin", prompt)
+        self.assertIn("translations and proper rotations are allowed", prompt)
+        self.assertIn("Reflections", prompt)
+        self.assertIn("no previous solution", prompt)
+
+    def test_visual_prompt_requires_real_image_read_and_fresh_outputs(self):
+        prompt = pipeline.worker_prompt("same skill", profile="fast", attached_inputs=True,
+                                        visual_self_check=True)
+        self.assertIn("draft/model.m3d", prompt)
+        self.assertIn("read IMAGE tool", prompt)
+        self.assertIn("corrected/model.m3d", prompt)
+        self.assertIn("self-check.json", prompt)
+        self.assertIn("isometry alone cannot", prompt)
+        self.assertIn("NOT teacher evidence", prompt)
+        self.assertNotIn("Save your completed part exactly as model.m3d", prompt)
+        self.assertNotIn("VISUAL SELF-CHECK", pipeline.worker_prompt("same skill"))
+
+    def test_visual_evidence_needs_successful_image_delivery_not_claim(self):
+        import json
+        for image, error, outside in ((False, False, False), (True, True, False),
+                                      (True, False, True), (True, False, False)):
+            with self.subTest(image=image, error=error, outside=outside), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                workspace = root / "workspace"
+                workspace.mkdir()
+                preview = root / "outside.jpg" if outside else workspace / "preview.jpg"
+                preview.write_bytes(b"pixels")
+                pipeline.write_json(workspace / "self-check.json", {
+                    "status": "matched", "final_preview": str(preview)})
+                trace = root / "trace.jsonl"
+                events = [
+                    {"type": "tool_execution_start", "toolCallId": "read1", "toolName": "read",
+                     "args": {"path": str(preview)}},
+                    {"type": "tool_execution_end", "toolCallId": "read1", "isError": error,
+                     "result": {"content": [{"type": "image", "data": "encoded"}] if image else
+                                            [{"type": "text", "text": "I viewed it"}]}}]
+                trace.write_text("\n".join(json.dumps(event) for event in events))
+                result = pipeline.visual_self_check_evidence(workspace, trace)
+                self.assertEqual(result["final_preview_pixels_delivered"], image and not error and not outside)
+                self.assertEqual(result["worker_claim"]["status"], "matched")
+
     def test_prepared_candidate_resumes_without_reflection(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -74,7 +129,7 @@ class PipelineTests(unittest.TestCase):
                    "code_sha256": pipeline.sha256(code)}
         pipeline.write_json(directory / "teacher-request.json", request)
         review = dict(request, status="passed", passed=True, score=1, visual_checked=True,
-                      dimensional_intent_checked=True, origin_checked=True)
+                      dimensional_intent_checked=True)
         pipeline.write_json(directory / "teacher-review.json", review)
         return directory, review, {"directory": "baseline", "worker_exit_code": 0}
 
@@ -92,6 +147,10 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(request["image_sha256"][str(preview)], pipeline.sha256(preview))
             self.assertNotIn(str(directory / "verification/model.jpg"), request["image_sha256"])
             self.assertIn("right-handed", request["instructions"])
+            self.assertIn("ignore absolute origin placement", request["instructions"])
+            self.assertIn("reflection is forbidden", request["instructions"])
+            self.assertNotIn("origin_checked(bool)", request["instructions"])
+            self.assertEqual(request["placement_policy"], "rigid_motion_allowed_no_reflection")
 
     def test_review_requires_exact_teacher(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -102,14 +161,25 @@ class PipelineTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "teacher_model"):
                 pipeline.validated_review(root, attempt)
 
-    def test_pass_requires_visual_dimensional_and_origin_check(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            directory, review, attempt = self.fixture(root)
-            review["visual_checked"] = False
-            pipeline.write_json(directory / "teacher-review.json", review)
-            with self.assertRaisesRegex(ValueError, "Incomplete review"):
-                pipeline.validated_review(root, attempt)
+    def test_pass_requires_visual_and_dimensional_checks(self):
+        for field in ("visual_checked", "dimensional_intent_checked"):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                directory, review, attempt = self.fixture(root)
+                review[field] = False
+                pipeline.write_json(directory / "teacher-review.json", review)
+                with self.assertRaisesRegex(ValueError, "Incomplete review"):
+                    pipeline.validated_review(root, attempt)
+
+    def test_origin_not_an_acceptance_check(self):
+        for origin in (None, False, True):
+            with self.subTest(origin=origin), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                directory, review, attempt = self.fixture(root)
+                if origin is not None:
+                    review["origin_checked"] = origin
+                pipeline.write_json(directory / "teacher-review.json", review)
+                self.assertTrue(pipeline.validated_review(root, attempt)["passed"])
 
     def test_pass_requires_successful_verifier_and_saved_preview(self):
         for missing in ("status", "preview", "errors"):
@@ -203,6 +273,17 @@ class PipelineTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     pipeline.validated_review(root, attempt)
 
+    def test_shape_failure_is_not_overridden_by_ignored_origin(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            directory, review, attempt = self.fixture(root)
+            review.update(status="failed", passed=False, score=.75, origin_checked=False,
+                          feedback="Mirrored ledge cannot align by translation and proper rotation")
+            pipeline.write_json(directory / "teacher-review.json", review)
+            pipeline.validated_review(root, attempt)
+            self.assertEqual(attempt["status"], "failed")
+            self.assertEqual(attempt["hard"], 0)
+
     def test_failed_model_remains_a_scored_failure(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -257,6 +338,33 @@ class PipelineTests(unittest.TestCase):
                 self.assertTrue((history / name).is_file(), name)
             self.assertFalse((directory / "teacher-review.json").exists())
 
+    def test_targeted_regrade_preserves_order_models_and_optimizer_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            directory, _, attempt = self.fixture(root)
+            attempt.update(id="baseline", status="failed", score=.85, hard=0)
+            untouched = {"id": "newer", "directory": "newer", "status": "passed", "hard": 1}
+            pipeline.write_json(root / "run.json", {"state": "complete", "attempts": [attempt, untouched],
+                                                   "teacher_transport": "pi", "gate": {"accepted": False}})
+            pipeline.write_json(root / "proposal.json", [])
+            before = (directory / "workspace/model.m3d").read_bytes()
+            with patch.object(pipeline, "request_teacher") as teacher, \
+                    patch.object(pipeline, "validated_review", return_value={"status": "passed"}) as validate, \
+                    patch.object(pipeline, "execute_attempt") as execute, patch.object(pipeline, "report"):
+                pipeline.prepare_review(root, attempt_id="baseline")
+            execute.assert_not_called()
+            self.assertEqual(teacher.call_args.args[2]["id"], "baseline")
+            validate.assert_called_once()
+            data = pipeline.read_json(root / "run.json")
+            self.assertEqual([item["id"] for item in data["attempts"]], ["baseline", "newer"])
+            self.assertEqual(data["attempts"][1], untouched)
+            self.assertEqual(data["state"], "complete")
+            self.assertTrue((root / "proposal.json").is_file())
+            self.assertEqual((directory / "workspace/model.m3d").read_bytes(), before)
+            history = root / data["review_history"][0]
+            self.assertTrue((history / "teacher-review.json").is_file())
+            self.assertTrue((history / "proposal.json").is_file())
+
     def test_nonfinite_and_out_of_range_scores_rejected(self):
         for score in (float("nan"), float("inf"), -1, 2, True):
             with self.subTest(score=score), tempfile.TemporaryDirectory() as temporary:
@@ -266,6 +374,85 @@ class PipelineTests(unittest.TestCase):
                 pipeline.write_json(directory / "teacher-review.json", review)
                 with self.assertRaises(ValueError):
                     pipeline.validated_review(root, attempt)
+
+
+class PlacementPolicyTests(unittest.TestCase):
+    def test_world_bounds_are_diagnostic_not_a_rotation_or_translation_gate(self):
+        import ast
+        from unittest.mock import Mock
+        source = PATH.with_name("practice_verify.py")
+        tree = ast.parse(source.read_text())
+        functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)
+                     and node.name in {"check", "inspect_geometry"}]
+        namespace = {"ksapi": Mock(), "Report": dict, "Any": object}
+        exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), "exec"), namespace)
+        for bounds in ([100, 200, 300, 160, 228, 375], [-100, 2, 7, -20, 72, 82]):
+            with self.subTest(bounds=bounds):
+                namespace["body_bounds"] = lambda _: ([object()], bounds)
+                report = {"checks": {}}
+                namespace["inspect_geometry"](object(), report)
+                self.assertTrue(report["checks"]["one_solid_body"]["passed"])
+                self.assertIsNone(report["checks"]["extents_mm"]["passed"])
+                self.assertEqual(report["bounds_mm"], bounds)
+        namespace["body_bounds"] = lambda _: ([], None)
+        report = {"checks": {}}
+        namespace["inspect_geometry"](object(), report)
+        self.assertFalse(report["checks"]["one_solid_body"]["passed"])
+
+
+class PreviewSafetyTests(unittest.TestCase):
+    def setUp(self):
+        import ast
+        import math
+        from unittest.mock import Mock
+        source = PATH.with_name("practice_preview.py")
+        tree = ast.parse(source.read_text())
+        functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)
+                     and node.name in {"require", "new_output", "capture"}]
+        self.namespace = {"Path": Path, "math": math, "ksapi": Mock(), "c": Mock(), "c3d": Mock()}
+        self.namespace["c3d"].ksVPSZ90AxonometricISO = 4
+        self.namespace["c3d"].ksVPIsometric = 5
+        exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), "exec"), self.namespace)
+        self.doc = Mock()
+        self.manager = self.namespace["ksapi"].IKompasDocument3D.return_value.GetViewProjectionManager.return_value
+        self.manager.GetViewProjectionScheme.return_value = 4
+        self.manager.GetCount.return_value = 1
+        self.manager.GetViewProjection.return_value.GetViewProjectonType.return_value = 5
+        self.parameters = self.namespace["ksapi"].IRasterConvertParameters.return_value
+        self.parameters.CalcRasterScale.return_value = 1.0
+
+    def test_existing_preview_or_dangling_link_never_touches_cad(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "preview.jpg"
+            for symlink in (False, True):
+                if symlink:
+                    target.unlink()
+                    target.symlink_to(Path(temporary) / "missing.jpg")
+                else:
+                    target.write_bytes(b"preserve")
+                with self.assertRaises(FileExistsError):
+                    self.namespace["capture"](self.doc, target)
+                self.doc.SetActive.assert_not_called()
+
+    def test_failed_scheme_stops_before_any_projection_or_export(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            self.manager.GetViewProjectionScheme.return_value = 2
+            with self.assertRaisesRegex(RuntimeError, "scheme readback"):
+                self.namespace["capture"](self.doc, Path(temporary) / "preview.jpg")
+            self.manager.GetCount.assert_not_called()
+            self.doc.SaveAsToRasterFormat.assert_not_called()
+            self.doc.Close.assert_not_called()
+
+    def test_export_writes_only_preview_not_model(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "preview.jpg"
+            self.doc.SaveAsToRasterFormat.side_effect = lambda *_: target.write_bytes(b"\xff\xd8\xffjpeg")
+            self.namespace["capture"](self.doc, target)
+            self.manager.SetViewProjectionScheme.assert_called_once_with(4)
+            self.parameters.CalcRasterScale.assert_called_once_with(self.doc, 960, 720)
+            self.doc.Save.assert_not_called()
+            self.doc.SaveAs.assert_not_called()
+            self.doc.Close.assert_not_called()
 
 
 if __name__ == "__main__":

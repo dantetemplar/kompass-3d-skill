@@ -1,0 +1,1 @@
+failed: /home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-074806-visual-mmlr5tbq/fast-candidate/verification/verification.json

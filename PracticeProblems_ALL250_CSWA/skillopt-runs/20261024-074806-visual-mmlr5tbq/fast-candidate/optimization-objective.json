@@ -1,0 +1,9 @@
+{
+  "goal": "Worker views its own saved model and compares with drawing before finalizing",
+  "baseline_run": "/home/dante/Projects/dantetemplar/kompass-3d-skill/PracticeProblems_ALL250_CSWA/skillopt-runs/20261024-002744-fast-js45ew3p",
+  "baseline_attempt": "fast-candidate-5",
+  "skill_unchanged": true,
+  "preview_helper_sha256": "f4730972a563650a76d06c26affe9b0b8178db4b8e06711d530bdd78ae044514",
+  "time_boundary": "Full worker runtime including preview export, image reads and any correction",
+  "scope": "One training task, harness change; no generalization or isolated speed claim"
+}

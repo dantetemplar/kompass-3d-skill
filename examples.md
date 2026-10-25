@@ -1,6 +1,6 @@
 # Примеры: запуск и проверка
 
-Документация разработки репозитория, не входит в устанавливаемый скилл. Здесь описаны запуск самостоятельных макросов, регрессия галереи и измерения результата. Сами рецепты построения и галерея с изображениями находятся в [SKILL.md](skills/kompass-3d-skill/SKILL.md#рецепты-для-компас-3d-на-python). Для адаптации достаточно нужного `build`; весь стенд переносить в рабочий макрос не нужно.
+Документация разработки репозитория, не входит в устанавливаемый скилл. Здесь описаны запуск самостоятельных макросов, регрессия галереи и измерения результата. Тематические рецепты доступны через [SKILL.md](skills/kompass-3d-skill/SKILL.md), а галерея с изображениями — в [references/examples.md](skills/kompass-3d-skill/references/examples.md). Для адаптации достаточно нужного `build`; весь стенд переносить в рабочий макрос не нужно.
 
 ## Запустить отдельный пример
 
@@ -31,7 +31,7 @@ bash scripts/run.sh examples/02_ring.py --output ~/kompas-models/ring.m3d
 bash scripts/run.sh examples/03_holes.py --output ~/kompas-models/holes.m3d
 ```
 
-[incremental_edit.py](skills/kompass-3d-skill/examples/incremental_edit.py) — правка глубины и Undo/Redo ([Undo](skills/kompass-3d-skill/SKILL.md#undo)).
+[incremental_edit.py](skills/kompass-3d-skill/examples/incremental_edit.py) — правка глубины и Undo/Redo ([Undo](skills/kompass-3d-skill/references/documents.md#undo)).
 
 ## Проверка размерного управления эскизом
 

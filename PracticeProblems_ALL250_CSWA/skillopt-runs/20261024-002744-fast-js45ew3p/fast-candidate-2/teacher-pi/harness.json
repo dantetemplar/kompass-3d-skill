@@ -1,0 +1,33 @@
+{
+  "harness": "pi",
+  "provider": "teacher-proxy",
+  "model": "qgm-6.1-sol",
+  "thinking": "high",
+  "tools": [
+    "read",
+    "grep",
+    "find",
+    "ls"
+  ],
+  "tools_called": [
+    "ls",
+    "read",
+    "read",
+    "read",
+    "read",
+    "read",
+    "read",
+    "read",
+    "grep",
+    "grep",
+    "read",
+    "read",
+    "read"
+  ],
+  "seconds": 75.108,
+  "images": [
+    "drawing.jpg",
+    "model.jpg"
+  ],
+  "boundary": "curated snapshot with path-guarded tools, no shell/CAD/write tools; not an OS sandbox"
+}

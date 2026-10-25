@@ -79,7 +79,9 @@ class SkillIntegrityTests(unittest.TestCase):
                 self.assertIsNone(match, match.group() if match else "")
                 for target in re.findall(r"\]\(([^)]+)\)", text):
                     if "://" not in target and not target.startswith("#"):
-                        self.assertTrue((path.parent / target.split("#")[0]).is_file(), target)
+                        destination = (path.parent / target.split("#")[0]).resolve()
+                        self.assertTrue(destination.is_file(), target)
+                        self.assertTrue(destination.is_relative_to(root.resolve()), target)
 
     def test_copied_examples_and_tests_work_without_original_project(self):
         root = SKILL_DIR
@@ -133,12 +135,12 @@ class DocumentLifecycleTests(unittest.TestCase):
 
     def test_documented_close_helper_matches_executable_example(self):
         recipe = load_recipe("10_assembly")
-        text = (SKILL_DIR / "SKILL.md").read_text()
-        snippet = next(code for code in re.findall(r"```python\n(.*?)\n```", text, re.DOTALL)
+        document = SKILL_DIR / "references/documents.md"
+        snippet = next(code for code in re.findall(r"```python\n(.*?)\n```", document.read_text(), re.DOTALL)
                        if code.startswith("def close_owned("))
         namespace = {"ksapi": SimpleNamespace(IKompasDocument=object),
                      "c": recipe.c, "require": recipe.require}
-        exec(compile(snippet, "SKILL.md:close_owned", "exec"), namespace)
+        exec(compile(snippet, f"{document}:close_owned", "exec"), namespace)
         doc = Mock()
         doc.Close.return_value = False
         owned = [doc]

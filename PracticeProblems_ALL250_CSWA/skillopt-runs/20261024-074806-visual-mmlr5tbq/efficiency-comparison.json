@@ -1,0 +1,38 @@
+{
+  "passed": false,
+  "target_seconds": 120,
+  "worker_seconds": 510.443,
+  "worker_usage": {
+    "input": 39255,
+    "output": 59560,
+    "cacheRead": 1817472,
+    "cacheWrite": 0,
+    "totalTokens": 1916287,
+    "requests": 35,
+    "tools": {
+      "read": 7,
+      "bash": 27,
+      "write": 2
+    }
+  },
+  "target_met": false,
+  "adopted": false,
+  "scope": "Task 1.1 training replay; unchanged selected skill plus draft render/read/compare loop; no live adoption",
+  "visual_trajectory_completed": true,
+  "preview_export_seconds": 5.363,
+  "visual_verdict_correct": false,
+  "corrections_made": false,
+  "efficiency_vs_selected_baseline": {
+    "improved": false,
+    "reason": "candidate_incorrect",
+    "baseline": {"passed": true, "seconds": 186.064, "tokens": 555276},
+    "candidate": {"passed": false, "seconds": 510.443, "tokens": 1916287}
+  },
+  "findings": [
+    "Worker received preview image pixels; preview export and final artifact hashes agree.",
+    "Worker declared matched but did not catch a 4 mm short step or the wrong origin.",
+    "Independent review identifies the 640 mm3 missing step volume; task-volume inconsistency was a worker misdiagnosis.",
+    "One training replay does not establish a causal speed effect; most elapsed time preceded preview export.",
+    "Live skill remains unchanged; this trajectory is not selected or adopted."
+  ]
+}

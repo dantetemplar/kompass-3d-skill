@@ -1,0 +1,23 @@
+{
+  "passed": false,
+  "target_seconds": 120,
+  "worker_seconds": 299.708,
+  "worker_usage": {
+    "input": 35471,
+    "output": 25891,
+    "cacheRead": 2057600,
+    "cacheWrite": 0,
+    "totalTokens": 2118962,
+    "requests": 81,
+    "tools": {
+      "read": 14,
+      "ls": 2,
+      "bash": 62,
+      "write": 1,
+      "edit": 3
+    }
+  },
+  "target_met": false,
+  "adopted": false,
+  "scope": "Task 1.1 training replay, same successful skill snapshot and helper; thinking off instead of low, not held-out"
+}

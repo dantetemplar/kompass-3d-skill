@@ -193,7 +193,8 @@ def inspect_geometry(part: ksapi.IPart, report: Report) -> None:
     report["bounds_mm"] = bounds
     extents = [bounds[i + 3] - bounds[i] for i in range(3)] if bounds is not None else None
     report["extents_mm"] = extents
-    check(report, "extents_mm", extents is not None and all(abs(a - b) <= 1e-5 for a, b in zip(sorted(extents), [28, 60, 75])), extents, {"sorted_mm": [28, 60, 75], "tolerance_mm": 1e-5})
+    check(report, "extents_mm", None, extents,
+          "World-axis bounding box is diagnostic only: arbitrary proper rotations are allowed; teacher checks dimensions")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -211,13 +212,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                       "status": "failed", "geometry_passed": False, "native_tree_passed": False,
                       "sketches_fully_defined": False, "checks": {}, "errors": [], "unit_calibration": None,
                       "sha256_before": checksum(model), "warnings": [
-                          "Origin-marker placement and orientation independently unverified; extents allow axis permutations.",
+                          "Absolute origin and world-axis orientation are ignored by user policy; translations and proper rotations are allowed, reflections are not.",
                           "WellConstrained (including fixed geometry) and dimension counts do not prove dimensional intent; teacher must review worker code.",
                           "Volume plus bounds is not full CAD correctness; teacher must review shape, individual dimensions and actual JPEG.",
                           "Document permits in-memory rebuild; no Save/SaveAs is issued and unchanged disk SHA-256 is required.",
                           "Native counts do not prove all features are dimension-driven; no dimension perturbation or dependency portability test is performed."],
                       "full_cad_correctness_verified": False}
-    check(report, "origin", None, "independently unverified", "Red origin marker in the supplied drawing; teacher must inspect pixels")
+    report["placement_policy"] = "rigid_motion_allowed_no_reflection"
+    check(report, "origin", None, "ignored by user policy", "Absolute origin is not an acceptance criterion")
     session = Session(report)
     previous = None
     try:
@@ -275,12 +277,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             check(report, "artifact_unchanged", False, str(error), report["sha256_before"])
         def passed(names: Sequence[str]) -> bool:
             return not report["errors"] and all(report["checks"].get(name, {}).get("passed") is True for name in names)
-        report["geometry_passed"] = passed(("saved_artifact_opened", "rebuild", "one_solid_body", "extents_mm", "volume_unit_calibration", "volume_mm3", "artifact_unchanged"))
+        report["geometry_passed"] = passed(("saved_artifact_opened", "rebuild", "one_solid_body", "volume_unit_calibration", "volume_mm3", "artifact_unchanged"))
         report["native_tree_passed"] = passed(("feature_errors", "native_sketches", "native_extrusions", "artifact_unchanged"))
         report["sketches_fully_defined"] = passed(("sketch_constraints", "artifact_unchanged"))
         automated = report["geometry_passed"] and report["native_tree_passed"] and report["sketches_fully_defined"]
         report["status"] = "passed" if automated and report.get("image") else "failed"
-        report["status_scope"] = "Automated evidence only, not full CAD correctness; overall success also requires independent teacher review of origin, shape and dimensional intent."
+        report["status_scope"] = "Automated evidence only, not full CAD correctness; overall success also requires independent teacher review of dimensions, shape and dimensional intent up to translation and proper rotation, never reflection."
         (output / "verification.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     print(f"{report['status']}: {output / 'verification.json'}", flush=True)
     return 0 if report["status"] in ("passed", "partial") else 1
